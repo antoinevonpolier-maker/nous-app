@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#9B6B8A">
+<title>Photos — Nous</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --mauve: #9B6B8A; --bleu: #7B9BBE;
+    --fond: #f7f5f6; --texte: #2a2630; --texte-doux: #8a8290;
+    --carte: #ffffff; --bordure: rgba(0,0,0,0.07); --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--fond); color: var(--texte); overscroll-behavior: none;
+  }
+  body { max-width: 430px; margin: 0 auto; min-height: 100dvh; padding-bottom: 88px; }
+
+  .topbar {
+    background: linear-gradient(160deg, #9B6B8A, #7B9BBE);
+    padding: calc(env(safe-area-inset-top) + 20px) 20px 20px;
+    color: white; border-radius: 0 0 28px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .topbar h1 { font-size: 22px; font-weight: 600; }
+  .btn-ajout {
+    background: rgba(255,255,255,0.25); border: none; color: white;
+    width: 42px; height: 42px; border-radius: 50%; font-size: 26px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    line-height: 1; padding-bottom: 3px;
+  }
+  .btn-ajout:active { transform: scale(0.93); }
+
+  .note-info {
+    margin: 14px 16px 0; background: #f3eaef; border-radius: 12px;
+    padding: 10px 14px; font-size: 12px; color: var(--mauve);
+    display: flex; align-items: center; gap: 8px; line-height: 1.4;
+  }
+  .note-info svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .contenu { padding: 16px; }
+  .grille-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .photo-item {
+    aspect-ratio: 1; border-radius: var(--radius); overflow: hidden;
+    background: var(--carte); border: 1px solid var(--bordure);
+    position: relative; cursor: pointer;
+  }
+  .photo-item img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-item .info {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.6));
+    padding: 16px 8px 6px; display: flex; justify-content: space-between; align-items: flex-end;
+    pointer-events: none;
+  }
+  .photo-item .info .qui { font-size: 11px; color: white; font-weight: 600; }
+  .photo-item .info .quand { font-size: 9px; color: rgba(255,255,255,0.8); }
+
+  .coeur-btn {
+    position: absolute; top: 8px; right: 8px;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(0,0,0,0.35); backdrop-filter: blur(4px);
+    border: none; cursor: pointer; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s;
+  }
+  .coeur-btn:active { transform: scale(0.8); }
+  .coeur-btn svg { width: 19px; height: 19px; }
+  .coeur-btn .plein { display: none; }
+  .coeur-btn.garde .plein { display: block; }
+  .coeur-btn.garde .vide { display: none; }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.35); }
+    100% { transform: scale(1); }
+  }
+  .coeur-btn.anim svg { animation: pop 0.35s ease; }
+
+  .vide-msg { text-align: center; color: var(--texte-doux); padding: 60px 20px; }
+  .vide-msg .emoji { font-size: 48px; opacity: 0.4; margin-bottom: 12px; }
+  .vide-msg p { font-size: 14px; line-height: 1.5; }
+
+  #progression {
+    display: none; position: fixed; top: 0; left: 0; right: 0;
+    height: 3px; background: var(--mauve); z-index: 200;
+    transition: width 0.3s; width: 0%;
+  }
+
+  #visionneuse {
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.95);
+    align-items: center; justify-content: center; flex-direction: column;
+  }
+  #visionneuse img { max-width: 100%; max-height: 75vh; object-fit: contain; }
+  #visionneuse .fermer {
+    position: absolute; top: calc(env(safe-area-inset-top) + 16px); right: 20px;
+    color: white; font-size: 32px; background: none; border: none; cursor: pointer;
+  }
+  #visionneuse .legende { color: white; margin-top: 16px; font-size: 14px; text-align: center; }
+  #visionneuse .etat-garde { color: var(--bleu); font-size: 12px; margin-top: 6px; }
+  #visionneuse .barre-actions { display: flex; gap: 12px; margin-top: 20px; }
+  #visionneuse .vue-coeur {
+    background: rgba(155,107,138,0.25); color: #ff9eb5;
+    border: 1px solid rgba(255,158,181,0.4); padding: 10px 18px;
+    border-radius: 12px; font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #visionneuse .vue-coeur svg { width: 17px; height: 17px; }
+  #visionneuse .supprimer {
+    background: rgba(255,80,80,0.2); color: #ff8080;
+    border: 1px solid rgba(255,80,80,0.4); padding: 10px 18px;
+    border-radius: 12px; font-size: 14px; cursor: pointer;
+  }
+
+  .nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--bordure);
+    display: flex; justify-content: space-around;
+    padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 100;
+  }
+  .nav a {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    text-decoration: none; color: var(--texte-doux);
+    font-size: 10px; font-weight: 500; flex: 1; padding: 4px 0;
+  }
+  .nav a.actif { color: var(--mauve); }
+  .nav a svg { width: 24px; height: 24px; }
+
+  .chargement { text-align: center; color: var(--texte-doux); padding: 40px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="progression"></div>
+
+<div class="topbar">
+  <h1>Nos photos</h1>
+  <button class="btn-ajout" id="btn-ajout" title="Ajouter une photo">+</button>
+  <input type="file" id="fichier" accept="image/*" style="display:none">
+</div>
+
+<div class="note-info">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+  <span>Touche le coeur pour garder une photo. Les autres s'effacent apres 7 jours.</span>
+</div>
+
+<div class="contenu">
+  <div id="liste" class="chargement">Chargement…</div>
+</div>
+
+<div id="visionneuse">
+  <button class="fermer" id="fermer-vue">×</button>
+  <img id="img-vue" src="" alt="">
+  <div class="legende" id="legende-vue"></div>
+  <div class="etat-garde" id="etat-garde-vue"></div>
+  <div class="barre-actions">
+    <button class="vue-coeur" id="btn-coeur-vue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      <span id="txt-coeur-vue">Garder</span>
+    </button>
+    <button class="supprimer" id="btn-supprimer">Supprimer</button>
+  </div>
+</div>
+
+<nav class="nav">
+  <a href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Accueil
+  </a>
+  <a href="photos.html" class="actif">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Photos
+  </a>
+  <a href="agenda.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Agenda
+  </a>
+  <a href="dessin.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+    Dessin
+  </a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+protegerPage();
+
+const JOURS_AVANT_SUPPRESSION = 7;
+
+let monPrenom = "";
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    monPrenom = prenomDepuisEmail(user.email);
+    await nettoyerAnciennesPhotos();
+    ecouterPhotos();
+  }
+});
+
+function prenomDepuisEmail(email) {
+  const A = COUPLE.personneA, B = COUPLE.personneB;
+  const local = (email || "").toLowerCase();
+  if (local.includes(A.prenom.toLowerCase())) return A.prenom;
+  if (local.includes(B.prenom.toLowerCase())) return B.prenom;
+  return "Quelqu'un";
+}
+
+async function nettoyerAnciennesPhotos() {
+  try {
+    const limite = new Date();
+    limite.setDate(limite.getDate() - JOURS_AVANT_SUPPRESSION);
+    const limiteTs = firebase.firestore.Timestamp.fromDate(limite);
+    const snap = await db.collection("photos").where("date", "<", limiteTs).get();
+    const aSupprimer = snap.docs.filter(d => !d.data().garde);
+    for (const doc of aSupprimer) {
+      const p = doc.data();
+      if (p.chemin) await storage.ref().child(p.chemin).delete().catch(() => {});
+      await doc.ref.delete().catch(() => {});
+    }
+    if (aSupprimer.length > 0) console.log(aSupprimer.length + " photo(s) nettoyee(s).");
+  } catch (e) {
+    console.log("Nettoyage photos ignore :", e.message);
+  }
+}
+
+const btnAjout = document.getElementById("btn-ajout");
+const inputFichier = document.getElementById("fichier");
+const progression = document.getElementById("progression");
+
+btnAjout.addEventListener("click", () => inputFichier.click());
+
+inputFichier.addEventListener("change", async (e) => {
+  const fichier = e.target.files[0];
+  if (!fichier) return;
+  progression.style.display = "block";
+  progression.style.width = "10%";
+  try {
+    const nom = "photos/" + Date.now() + "_" + fichier.name.replace(/[^a-zA-Z0-9.]/g, "_");
+    const ref = storage.ref().child(nom);
+    const tache = ref.put(fichier);
+    tache.on("state_changed",
+      (snap) => { progression.style.width = ((snap.bytesTransferred / snap.totalBytes) * 90 + 10) + "%"; },
+      (err) => { alert("Erreur lors de l'envoi : " + err.message); progression.style.display = "none"; },
+      async () => {
+        const url = await tache.snapshot.ref.getDownloadURL();
+        await db.collection("photos").add({
+          url: url, chemin: nom, auteur: monPrenom, garde: false,
+          date: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        progression.style.width = "100%";
+        setTimeout(() => { progression.style.display = "none"; progression.style.width = "0%"; }, 400);
+      }
+    );
+  } catch (err) {
+    alert("Erreur : " + err.message);
+    progression.style.display = "none";
+  }
+  inputFichier.value = "";
+});
+
+function ecouterPhotos() {
+  db.collection("photos").orderBy("date", "desc")
+    .onSnapshot((snap) => {
+      const liste = document.getElementById("liste");
+      if (snap.empty) {
+        liste.className = "";
+        liste.innerHTML = '<div class="vide-msg"><div class="emoji">📷</div><p>Aucune photo pour l\'instant.<br>Appuie sur + pour partager la première !</p></div>';
+        return;
+      }
+      liste.className = "";
+      let html = '<div class="grille-photos">';
+      snap.forEach((doc) => {
+        const p = doc.data();
+        const garde = p.garde === true;
+        html += '<div class="photo-item" data-id="' + doc.id + '" data-url="' + p.url + '" data-chemin="' + (p.chemin || '') + '" data-auteur="' + (p.auteur || '') + '" data-garde="' + garde + '" data-date="' + (p.date ? p.date.toDate().toISOString() : '') + '">' +
+          '<button class="coeur-btn ' + (garde ? 'garde' : '') + '" data-id="' + doc.id + '" aria-label="Garder cette photo">' +
+            '<svg class="vide" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' +
+            '<svg class="plein" viewBox="0 0 24 24" fill="#ff5a76" stroke="#ff5a76" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' +
+          '</button>' +
+          '<img src="' + p.url + '" alt="photo" loading="lazy">' +
+          '<div class="info"><span class="qui">' + (p.auteur || '') + '</span><span class="quand">' + formatDate(p.date) + '</span></div>' +
+        '</div>';
+      });
+      html += '</div>';
+      liste.innerHTML = html;
+
+      document.querySelectorAll(".coeur-btn").forEach((btn) => {
+        btn.addEventListener("click", async (ev) => {
+          ev.stopPropagation();
+          const id = btn.dataset.id;
+          const estGarde = btn.classList.contains("garde");
+          btn.classList.add("anim");
+          setTimeout(() => btn.classList.remove("anim"), 350);
+          btn.classList.toggle("garde");
+          try {
+            await db.collection("photos").doc(id).update({ garde: !estGarde });
+          } catch (e) {
+            btn.classList.toggle("garde");
+            alert("Erreur : " + e.message);
+          }
+        });
+      });
+
+      document.querySelectorAll(".photo-item").forEach((el) => {
+        el.addEventListener("click", () => ouvrirPhoto(el.dataset));
+      });
+    });
+}
+
+const visionneuse = document.getElementById("visionneuse");
+let photoOuverte = null;
+
+function ouvrirPhoto(data) {
+  photoOuverte = data;
+  document.getElementById("img-vue").src = data.url;
+  const date = data.date ? new Date(data.date) : null;
+  document.getElementById("legende-vue").textContent =
+    (data.auteur || "") + (date ? " — " + date.toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"}) : "");
+  majEtatCoeurVue(data.garde === "true");
+  visionneuse.style.display = "flex";
+}
+
+function majEtatCoeurVue(garde) {
+  const etat = document.getElementById("etat-garde-vue");
+  const txt = document.getElementById("txt-coeur-vue");
+  const btn = document.getElementById("btn-coeur-vue");
+  if (garde) {
+    etat.textContent = "Gardée — ne sera pas supprimée";
+    txt.textContent = "Ne plus garder";
+    btn.querySelector("svg").setAttribute("fill", "#ff5a76");
+    btn.querySelector("svg").setAttribute("stroke", "#ff5a76");
+  } else {
+    etat.textContent = "S'effacera après 7 jours";
+    txt.textContent = "Garder";
+    btn.querySelector("svg").setAttribute("fill", "none");
+    btn.querySelector("svg").setAttribute("stroke", "#ff9eb5");
+  }
+}
+
+document.getElementById("btn-coeur-vue").addEventListener("click", async () => {
+  if (!photoOuverte) return;
+  const nouveau = !(photoOuverte.garde === "true");
+  try {
+    await db.collection("photos").doc(photoOuverte.id).update({ garde: nouveau });
+    photoOuverte.garde = nouveau ? "true" : "false";
+    majEtatCoeurVue(nouveau);
+  } catch (e) {
+    alert("Erreur : " + e.message);
+  }
+});
+
+document.getElementById("fermer-vue").addEventListener("click", () => {
+  visionneuse.style.display = "none";
+});
+document.getElementById("btn-supprimer").addEventListener("click", async () => {
+  if (!photoOuverte) return;
+  if (!confirm("Supprimer cette photo ?")) return;
+  try {
+    await db.collection("photos").doc(photoOuverte.id).delete();
+    if (photoOuverte.chemin) await storage.ref().child(photoOuverte.chemin).delete().catch(() => {});
+    visionneuse.style.display = "none";
+  } catch (err) {
+    alert("Erreur : " + err.message);
+  }
+});
+
+function formatDate(timestamp) {
+  if (!timestamp) return "";
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const sec = Math.floor((Date.now() - date) / 1000);
+  if (sec < 3600) return "il y a " + Math.max(1, Math.floor(sec / 60)) + " min";
+  if (sec < 86400) return "il y a " + Math.floor(sec / 3600) + " h";
+  if (sec < 604800) return "il y a " + Math.floor(sec / 86400) + " j";
+  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

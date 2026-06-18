@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<title>Dessin — Nous</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --mauve: #9B6B8A; --bleu: #7B9BBE;
+    --fond: #f7f5f6; --texte: #2a2630; --texte-doux: #8a8290;
+    --bordure: rgba(0,0,0,0.07); --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--fond); color: var(--texte);
+    overscroll-behavior: none; touch-action: none;
+  }
+  body { max-width: 430px; margin: 0 auto; min-height: 100dvh; padding-bottom: 88px; }
+
+  .topbar {
+    background: linear-gradient(160deg, #9B6B8A, #7B9BBE);
+    padding: calc(env(safe-area-inset-top) + 18px) 20px 16px;
+    color: white; border-radius: 0 0 24px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .topbar h1 { font-size: 20px; font-weight: 600; }
+  .topbar .statut { font-size: 11px; opacity: 0.85; }
+
+  .zone-dessin { padding: 14px; }
+
+  .canvas-cadre {
+    background: #1a1a2e; border-radius: 20px; overflow: hidden;
+    position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  #canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+  .canvas-info {
+    position: absolute; top: 10px; left: 12px;
+    font-size: 10px; color: rgba(255,255,255,0.4);
+    pointer-events: none;
+  }
+
+  /* Outils */
+  .outils {
+    margin-top: 14px; background: white; border-radius: var(--radius);
+    border: 1px solid var(--bordure); padding: 14px;
+  }
+  .ligne-outils { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .ligne-outils:last-child { margin-bottom: 0; }
+  .ligne-label { font-size: 11px; color: var(--texte-doux); font-weight: 600; width: 60px; flex-shrink: 0; }
+
+  .couleurs { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+  .pastille {
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+    border: 3px solid transparent; transition: transform 0.1s;
+  }
+  .pastille.active { border-color: var(--texte); transform: scale(1.12); }
+  .pastille:active { transform: scale(0.92); }
+
+  .epaisseurs { display: flex; gap: 8px; flex: 1; align-items: center; }
+  .ep-btn {
+    flex: 1; height: 36px; border-radius: 10px; border: 1.5px solid var(--bordure);
+    background: #fafafa; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .ep-btn.active { border-color: var(--mauve); background: #f3eaef; }
+  .ep-btn .point { background: var(--texte); border-radius: 50%; }
+
+  .actions { display: flex; gap: 10px; margin-top: 14px; }
+  .actions button {
+    border-radius: 12px; font-size: 15px; font-weight: 600;
+    cursor: pointer; border: none; padding: 14px; transition: transform 0.1s;
+  }
+  .actions button:active { transform: scale(0.97); }
+  .btn-effacer { background: #f0eef0; color: var(--texte); flex: 0 0 auto; padding: 14px 18px; }
+  .btn-fond { background: #eef2f6; color: var(--bleu); flex: 0 0 auto; padding: 14px 18px; font-size: 13px; }
+  .btn-envoyer { background: var(--mauve); color: white; flex: 1; }
+  .btn-envoyer:disabled { opacity: 0.6; }
+
+  .reception {
+    margin: 14px; background: white; border-radius: var(--radius);
+    border: 1px solid var(--bordure); padding: 14px; text-align: center;
+  }
+  .reception .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--texte-doux); font-weight: 600; margin-bottom: 8px; }
+  .reception img { width: 100%; border-radius: 12px; background: #1a1a2e; }
+  .reception .meta { font-size: 12px; color: var(--texte-doux); margin-top: 8px; }
+
+  #progression {
+    display: none; position: fixed; top: 0; left: 0; right: 0;
+    height: 3px; background: var(--mauve); z-index: 200; width: 0%; transition: width 0.3s;
+  }
+
+  .nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--bordure);
+    display: flex; justify-content: space-around;
+    padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 100;
+  }
+  .nav a {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    text-decoration: none; color: var(--texte-doux);
+    font-size: 10px; font-weight: 500; flex: 1; padding: 4px 0;
+  }
+  .nav a.actif { color: var(--mauve); }
+  .nav a svg { width: 24px; height: 24px; }
+</style>
+</head>
+<body>
+
+<div id="progression"></div>
+
+<div class="topbar">
+  <div>
+    <h1>Tableau partagé</h1>
+    <div class="statut" id="statut">Dessine quelque chose pour Silvia 💕</div>
+  </div>
+</div>
+
+<div class="zone-dessin">
+  <div class="canvas-cadre">
+    <canvas id="canvas"></canvas>
+    <div class="canvas-info">✏️ Dessine avec ton doigt</div>
+  </div>
+
+  <div class="outils">
+    <div class="ligne-outils">
+      <span class="ligne-label">Couleur</span>
+      <div class="couleurs" id="couleurs"></div>
+    </div>
+    <div class="ligne-outils">
+      <span class="ligne-label">Épaisseur</span>
+      <div class="epaisseurs" id="epaisseurs"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-effacer" id="btn-effacer">Effacer</button>
+    <button class="btn-fond" id="btn-fond" style="display:none">Repartir vierge</button>
+    <button class="btn-envoyer" id="btn-envoyer">Envoyer 💌</button>
+  </div>
+</div>
+
+<div class="reception" id="reception" style="display:none">
+  <div class="label">Dernier dessin reçu</div>
+  <img id="img-recue" src="" alt="dessin reçu">
+  <div class="meta" id="meta-recue"></div>
+  <button class="btn-fond" id="btn-repondre" style="display:inline-block; margin-top:12px; background:#f3eaef; color:var(--mauve)">✏️ Répondre par-dessus</button>
+</div>
+
+<nav class="nav">
+  <a href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Accueil
+  </a>
+  <a href="photos.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Photos
+  </a>
+  <a href="agenda.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Agenda
+  </a>
+  <a href="dessin.html" class="actif">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+    Dessin
+  </a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+protegerPage();
+
+const JOURS_AVANT_SUPPRESSION = 7;
+
+let monPrenom = "";
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    monPrenom = prenomDepuisEmail(user.email);
+    const autre = (monPrenom === COUPLE.personneA.prenom) ? COUPLE.personneB.prenom : COUPLE.personneA.prenom;
+    document.getElementById("statut").textContent = "Dessine quelque chose pour " + autre + " 💕";
+    await nettoyerAnciensDessins();
+    ecouterDernierDessin();
+  }
+});
+
+// Nettoyage auto : tous les dessins de plus de 7 jours sont supprimés (pas d'option garder)
+async function nettoyerAnciensDessins() {
+  try {
+    const limite = new Date();
+    limite.setDate(limite.getDate() - JOURS_AVANT_SUPPRESSION);
+    const limiteTs = firebase.firestore.Timestamp.fromDate(limite);
+    const snap = await db.collection("dessins").where("date", "<", limiteTs).get();
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      if (d.chemin) await storage.ref().child(d.chemin).delete().catch(() => {});
+      await doc.ref.delete().catch(() => {});
+    }
+    if (snap.size > 0) console.log(snap.size + " dessin(s) nettoye(s).");
+  } catch (e) {
+    console.log("Nettoyage dessins ignore :", e.message);
+  }
+}
+
+function prenomDepuisEmail(email) {
+  const A = COUPLE.personneA, B = COUPLE.personneB;
+  const local = (email || "").toLowerCase();
+  if (local.includes(A.prenom.toLowerCase())) return A.prenom;
+  if (local.includes(B.prenom.toLowerCase())) return B.prenom;
+  return "Quelqu'un";
+}
+
+// ====== CANVAS ======
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let dessine = false;
+let dernierX = 0, dernierY = 0;
+let couleurActuelle = "#ff9eb5";
+let epaisseurActuelle = 4;
+let aDessine = false;
+
+// Dimensionner le canvas (haute résolution)
+function dimensionnerCanvas() {
+  const ratio = window.devicePixelRatio || 1;
+  const largeur = canvas.offsetWidth;
+  const hauteur = Math.round(largeur * 1.15); // format portrait léger
+  canvas.width = largeur * ratio;
+  canvas.height = hauteur * ratio;
+  canvas.style.height = hauteur + "px";
+  ctx.scale(ratio, ratio);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  fondSombre();
+}
+function fondSombre() {
+  ctx.fillStyle = "#1a1a2e";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+setTimeout(dimensionnerCanvas, 50);
+
+// Coordonnées tactiles/souris
+function position(e) {
+  const rect = canvas.getBoundingClientRect();
+  const point = e.touches ? e.touches[0] : e;
+  return {
+    x: point.clientX - rect.left,
+    y: point.clientY - rect.top
+  };
+}
+
+function debut(e) {
+  e.preventDefault();
+  dessine = true;
+  const p = position(e);
+  dernierX = p.x; dernierY = p.y;
+  // Point initial (permet de poser un point sans bouger)
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, epaisseurActuelle / 2, 0, Math.PI * 2);
+  ctx.fillStyle = couleurActuelle;
+  ctx.fill();
+  aDessine = true;
+}
+function bouge(e) {
+  if (!dessine) return;
+  e.preventDefault();
+  const p = position(e);
+  ctx.beginPath();
+  ctx.moveTo(dernierX, dernierY);
+  ctx.lineTo(p.x, p.y);
+  ctx.strokeStyle = couleurActuelle;
+  ctx.lineWidth = epaisseurActuelle;
+  ctx.stroke();
+  dernierX = p.x; dernierY = p.y;
+}
+function fin(e) {
+  if (e) e.preventDefault();
+  dessine = false;
+}
+
+canvas.addEventListener("mousedown", debut);
+canvas.addEventListener("mousemove", bouge);
+canvas.addEventListener("mouseup", fin);
+canvas.addEventListener("mouseout", fin);
+canvas.addEventListener("touchstart", debut, { passive: false });
+canvas.addEventListener("touchmove", bouge, { passive: false });
+canvas.addEventListener("touchend", fin, { passive: false });
+
+// ====== COULEURS ======
+const palette = ["#ff9eb5", "#9eb5ff", "#ffffff", "#ffe066", "#7ee0a0", "#ff8a5c", "#c89eff", "#000000"];
+const contCouleurs = document.getElementById("couleurs");
+palette.forEach((c, i) => {
+  const p = document.createElement("div");
+  p.className = "pastille" + (i === 0 ? " active" : "");
+  p.style.background = c;
+  if (c === "#ffffff") p.style.border = "3px solid #ddd";
+  p.addEventListener("click", () => {
+    couleurActuelle = c;
+    document.querySelectorAll(".pastille").forEach(x => x.classList.remove("active"));
+    p.classList.add("active");
+    if (c === "#ffffff") p.style.border = "3px solid var(--texte)";
+  });
+  contCouleurs.appendChild(p);
+});
+
+// ====== ÉPAISSEURS ======
+const tailles = [{ ep: 2, taille: 6 }, { ep: 4, taille: 10 }, { ep: 8, taille: 16 }, { ep: 14, taille: 22 }];
+const contEp = document.getElementById("epaisseurs");
+tailles.forEach((t, i) => {
+  const b = document.createElement("div");
+  b.className = "ep-btn" + (i === 1 ? " active" : "");
+  const point = document.createElement("div");
+  point.className = "point";
+  point.style.width = t.taille + "px";
+  point.style.height = t.taille + "px";
+  b.appendChild(point);
+  b.addEventListener("click", () => {
+    epaisseurActuelle = t.ep;
+    document.querySelectorAll(".ep-btn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+  });
+  contEp.appendChild(b);
+});
+
+// ====== ACTIONS ======
+document.getElementById("btn-effacer").addEventListener("click", () => {
+  fondSombre();
+  aDessine = false;
+  document.getElementById("btn-fond").style.display = "none";
+});
+
+document.getElementById("btn-fond").addEventListener("click", () => {
+  fondSombre();
+  aDessine = false;
+  document.getElementById("btn-fond").style.display = "none";
+});
+
+// Répondre par-dessus le dessin reçu
+document.getElementById("btn-repondre").addEventListener("click", () => {
+  const img = document.getElementById("img-recue");
+  if (!img.src) return;
+  const tmp = new Image();
+  tmp.crossOrigin = "anonymous";
+  tmp.onload = () => {
+    fondSombre();
+    ctx.drawImage(tmp, 0, 0, canvas.offsetWidth, canvas.offsetWidth * 1.15);
+    document.getElementById("btn-fond").style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  tmp.onerror = () => alert("Impossible de charger le dessin pour répondre.");
+  tmp.src = img.src;
+});
+
+// ====== ENVOI ======
+const btnEnvoyer = document.getElementById("btn-envoyer");
+const progression = document.getElementById("progression");
+
+btnEnvoyer.addEventListener("click", () => {
+  if (!aDessine) { alert("Dessine quelque chose d'abord ! ✏️"); return; }
+  btnEnvoyer.disabled = true;
+  progression.style.display = "block";
+  progression.style.width = "15%";
+
+  canvas.toBlob(async (blob) => {
+    try {
+      const nom = "dessins/" + Date.now() + ".png";
+      const ref = storage.ref().child(nom);
+      const tache = ref.put(blob);
+      tache.on("state_changed",
+        (snap) => {
+          progression.style.width = ((snap.bytesTransferred / snap.totalBytes) * 80 + 15) + "%";
+        },
+        (err) => { alert("Erreur : " + err.message); btnEnvoyer.disabled = false; progression.style.display = "none"; },
+        async () => {
+          const url = await tache.snapshot.ref.getDownloadURL();
+          await db.collection("dessins").add({
+            url: url,
+            chemin: nom,
+            auteur: monPrenom,
+            date: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          progression.style.width = "100%";
+          setTimeout(() => {
+            progression.style.display = "none"; progression.style.width = "0%";
+            btnEnvoyer.disabled = false;
+            fondSombre(); aDessine = false;
+            document.getElementById("statut").textContent = "Envoyé ! 💕";
+          }, 400);
+        }
+      );
+    } catch (err) {
+      alert("Erreur : " + err.message);
+      btnEnvoyer.disabled = false; progression.style.display = "none";
+    }
+  }, "image/png");
+});
+
+// ====== RÉCEPTION (dernier dessin) ======
+function ecouterDernierDessin() {
+  db.collection("dessins").orderBy("date", "desc").limit(1)
+    .onSnapshot((snap) => {
+      if (snap.empty) return;
+      const d = snap.docs[0].data();
+      const reception = document.getElementById("reception");
+      reception.style.display = "block";
+      document.getElementById("img-recue").src = d.url;
+      document.getElementById("img-recue").crossOrigin = "anonymous";
+      const date = d.date ? d.date.toDate() : null;
+      document.getElementById("meta-recue").textContent =
+        "Par " + (d.auteur || "?") + (date ? " · " + tempsEcoule(date) : "");
+    });
+}
+
+function tempsEcoule(date) {
+  const sec = Math.floor((Date.now() - date) / 1000);
+  if (sec < 60) return "à l'instant";
+  if (sec < 3600) return "il y a " + Math.floor(sec / 60) + " min";
+  if (sec < 86400) return "il y a " + Math.floor(sec / 3600) + " h";
+  return "il y a " + Math.floor(sec / 86400) + " j";
+}
+
+window.addEventListener("resize", () => { /* on évite de redimensionner pour ne pas effacer */ });
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

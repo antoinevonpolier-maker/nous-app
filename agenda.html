@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#9B6B8A">
+<title>Agenda — Nous</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --mauve: #9B6B8A; --bleu: #7B9BBE;
+    --mauve-clair: #f3eaef; --bleu-clair: #eaf0f6;
+    --fond: #f7f5f6; --texte: #2a2630; --texte-doux: #8a8290;
+    --carte: #ffffff; --bordure: rgba(0,0,0,0.07); --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--fond); color: var(--texte); overscroll-behavior: none;
+  }
+  body { max-width: 430px; margin: 0 auto; min-height: 100dvh; padding-bottom: 88px; }
+
+  .topbar {
+    background: linear-gradient(160deg, #9B6B8A, #7B9BBE);
+    padding: calc(env(safe-area-inset-top) + 20px) 20px 20px;
+    color: white; border-radius: 0 0 28px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .topbar h1 { font-size: 22px; font-weight: 600; }
+  .btn-ajout {
+    background: rgba(255,255,255,0.25); border: none; color: white;
+    width: 42px; height: 42px; border-radius: 50%; font-size: 26px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    line-height: 1; padding-bottom: 3px;
+  }
+  .btn-ajout:active { transform: scale(0.93); }
+
+  .contenu { padding: 16px; }
+
+  .prochain {
+    background: linear-gradient(135deg, #9B6B8A, #7B9BBE);
+    border-radius: 20px; padding: 22px; color: white; margin-bottom: 20px;
+    text-align: center;
+  }
+  .prochain .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; opacity: 0.85; }
+  .prochain .titre { font-size: 20px; font-weight: 600; margin: 6px 0 10px; }
+  .prochain .compte { font-size: 38px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+  .prochain .compte small { font-size: 14px; font-weight: 400; opacity: 0.85; }
+  .prochain .date-evt { font-size: 12px; opacity: 0.8; margin-top: 8px; }
+
+  .titre-section {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--texte-doux); font-weight: 600; margin: 0 0 10px 4px;
+  }
+
+  .evt-carte {
+    background: var(--carte); border-radius: var(--radius);
+    border: 1px solid var(--bordure); padding: 14px;
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+    position: relative;
+  }
+  .evt-carte.passe { opacity: 0.45; }
+  .evt-date-bloc {
+    background: var(--mauve-clair); border-radius: 12px;
+    width: 52px; height: 52px; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .evt-date-bloc.bleu { background: var(--bleu-clair); }
+  .evt-date-bloc .jour { font-size: 20px; font-weight: 700; color: var(--mauve); line-height: 1; }
+  .evt-date-bloc.bleu .jour { color: var(--bleu); }
+  .evt-date-bloc .mois { font-size: 10px; text-transform: uppercase; color: var(--texte-doux); margin-top: 2px; }
+  .evt-infos { flex: 1; min-width: 0; }
+  .evt-infos .titre { font-size: 15px; font-weight: 600; }
+  .evt-infos .meta { font-size: 12px; color: var(--texte-doux); margin-top: 2px; }
+  .evt-compte {
+    font-size: 12px; font-weight: 600; color: var(--mauve);
+    white-space: nowrap;
+  }
+  .evt-suppr {
+    background: none; border: none; color: var(--texte-doux);
+    font-size: 18px; cursor: pointer; padding: 4px; opacity: 0.5;
+  }
+
+  .vide-msg { text-align: center; color: var(--texte-doux); padding: 50px 20px; }
+  .vide-msg .emoji { font-size: 48px; opacity: 0.4; margin-bottom: 12px; }
+  .vide-msg p { font-size: 14px; line-height: 1.5; }
+
+  /* Modale d'ajout */
+  #modale {
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.5); align-items: flex-end; justify-content: center;
+  }
+  #modale .feuille {
+    background: white; width: 100%; max-width: 430px;
+    border-radius: 24px 24px 0 0; padding: 24px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+    animation: monter 0.25s ease;
+  }
+  @keyframes monter { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  #modale h2 { font-size: 18px; margin-bottom: 16px; }
+  #modale label { font-size: 12px; color: var(--texte-doux); font-weight: 600; display: block; margin-bottom: 6px; }
+  #modale input {
+    width: 100%; padding: 13px 14px; border: 1.5px solid var(--bordure);
+    border-radius: 12px; font-size: 16px; margin-bottom: 16px; background: #fafafa;
+  }
+  #modale input:focus { outline: none; border-color: var(--mauve); background: white; }
+  #modale .boutons { display: flex; gap: 10px; }
+  #modale button {
+    flex: 1; padding: 14px; border-radius: 12px; font-size: 15px;
+    font-weight: 600; cursor: pointer; border: none;
+  }
+  #modale .annuler { background: #f0eef0; color: var(--texte); }
+  #modale .valider { background: var(--mauve); color: white; }
+
+  .nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--bordure);
+    display: flex; justify-content: space-around;
+    padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 100;
+  }
+  .nav a {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    text-decoration: none; color: var(--texte-doux);
+    font-size: 10px; font-weight: 500; flex: 1; padding: 4px 0;
+  }
+  .nav a.actif { color: var(--mauve); }
+  .nav a svg { width: 24px; height: 24px; }
+
+  .chargement { text-align: center; color: var(--texte-doux); padding: 40px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Notre agenda</h1>
+  <button class="btn-ajout" id="btn-ajout" title="Ajouter un événement">+</button>
+</div>
+
+<div class="contenu">
+  <div id="prochain-bloc"></div>
+  <div id="liste" class="chargement">Chargement…</div>
+</div>
+
+<!-- Modale d'ajout -->
+<div id="modale">
+  <div class="feuille">
+    <h2>Nouveau moment 💕</h2>
+    <label>Quoi ?</label>
+    <input type="text" id="m-titre" placeholder="Ex : Appel vidéo, Voyage à Paris…" maxlength="60">
+    <label>Quand ?</label>
+    <input type="datetime-local" id="m-date">
+    <div class="boutons">
+      <button class="annuler" id="m-annuler">Annuler</button>
+      <button class="valider" id="m-valider">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <a href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Accueil
+  </a>
+  <a href="photos.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Photos
+  </a>
+  <a href="agenda.html" class="actif">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Agenda
+  </a>
+  <a href="dessin.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+    Dessin
+  </a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+protegerPage();
+
+let monPrenom = "";
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    monPrenom = prenomDepuisEmail(user.email);
+    ecouterEvenements();
+  }
+});
+
+function prenomDepuisEmail(email) {
+  const A = COUPLE.personneA, B = COUPLE.personneB;
+  const local = (email || "").toLowerCase();
+  if (local.includes(A.prenom.toLowerCase())) return A.prenom;
+  if (local.includes(B.prenom.toLowerCase())) return B.prenom;
+  return "Quelqu'un";
+}
+
+// ---- Modale ----
+const modale = document.getElementById("modale");
+document.getElementById("btn-ajout").addEventListener("click", () => {
+  modale.style.display = "flex";
+  // Date par défaut : demain à 20h
+  const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(20, 0, 0, 0);
+  document.getElementById("m-date").value = d.toISOString().slice(0, 16);
+  document.getElementById("m-titre").value = "";
+});
+document.getElementById("m-annuler").addEventListener("click", () => modale.style.display = "none");
+modale.addEventListener("click", (e) => { if (e.target === modale) modale.style.display = "none"; });
+
+document.getElementById("m-valider").addEventListener("click", async () => {
+  const titre = document.getElementById("m-titre").value.trim();
+  const dateStr = document.getElementById("m-date").value;
+  if (!titre) { alert("Donne un titre à ce moment."); return; }
+  if (!dateStr) { alert("Choisis une date."); return; }
+  try {
+    await db.collection("evenements").add({
+      titre: titre,
+      date: firebase.firestore.Timestamp.fromDate(new Date(dateStr)),
+      auteur: monPrenom,
+      cree: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    modale.style.display = "none";
+  } catch (err) {
+    alert("Erreur : " + err.message);
+  }
+});
+
+// ---- Affichage ----
+function ecouterEvenements() {
+  db.collection("evenements").orderBy("date", "asc")
+    .onSnapshot((snap) => {
+      const liste = document.getElementById("liste");
+      const prochainBloc = document.getElementById("prochain-bloc");
+      const maintenant = new Date();
+
+      if (snap.empty) {
+        liste.className = "";
+        prochainBloc.innerHTML = "";
+        liste.innerHTML = `<div class="vide-msg"><div class="emoji">📅</div>
+          <p>Aucun moment prévu.<br>Appuie sur + pour planifier votre prochain rendez-vous !</p></div>`;
+        return;
+      }
+
+      const evts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const futurs = evts.filter(e => e.date && e.date.toDate() >= maintenant);
+      const passes = evts.filter(e => e.date && e.date.toDate() < maintenant).reverse();
+
+      // Bloc "prochain moment" mis en avant
+      if (futurs.length > 0) {
+        const p = futurs[0];
+        const date = p.date.toDate();
+        prochainBloc.innerHTML = `<div class="prochain">
+          <div class="label">Prochain moment</div>
+          <div class="titre">${echapper(p.titre)}</div>
+          <div class="compte">${compteARebours(date)}</div>
+          <div class="date-evt">${date.toLocaleDateString("fr-FR", {weekday:"long", day:"numeric", month:"long"})} à ${date.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"})}</div>
+        </div>`;
+      } else {
+        prochainBloc.innerHTML = "";
+      }
+
+      liste.className = "";
+      let html = "";
+
+      // À venir
+      if (futurs.length > 0) {
+        html += '<div class="titre-section">À venir</div>';
+        futurs.forEach((e, i) => html += carteEvt(e, i, false));
+      }
+      // Passés
+      if (passes.length > 0) {
+        html += '<div class="titre-section" style="margin-top:20px">Souvenirs</div>';
+        passes.forEach((e, i) => html += carteEvt(e, i, true));
+      }
+      liste.innerHTML = html;
+
+      document.querySelectorAll(".evt-suppr").forEach((b) => {
+        b.addEventListener("click", async () => {
+          if (!confirm("Supprimer ce moment ?")) return;
+          await db.collection("evenements").doc(b.dataset.id).delete();
+        });
+      });
+    });
+}
+
+function carteEvt(e, i, passe) {
+  const date = e.date.toDate();
+  const jour = date.getDate();
+  const mois = date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
+  const couleurBleu = i % 2 === 1;
+  return `<div class="evt-carte ${passe ? 'passe' : ''}">
+    <div class="evt-date-bloc ${couleurBleu ? 'bleu' : ''}">
+      <div class="jour">${jour}</div>
+      <div class="mois">${mois}</div>
+    </div>
+    <div class="evt-infos">
+      <div class="titre">${echapper(e.titre)}</div>
+      <div class="meta">${passe ? 'Passé' : compteARebours(date)} · ajouté par ${echapper(e.auteur || '?')}</div>
+    </div>
+    <button class="evt-suppr" data-id="${e.id}" title="Supprimer">×</button>
+  </div>`;
+}
+
+// ---- Utilitaires ----
+function compteARebours(date) {
+  const diff = date - Date.now();
+  if (diff <= 0) return "maintenant";
+  const jours = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const heures = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  if (jours >= 1) return "dans " + jours + (jours > 1 ? " jours" : " jour");
+  if (heures >= 1) return "dans " + heures + " h";
+  const min = Math.floor(diff / (1000 * 60));
+  return "dans " + min + " min";
+}
+function echapper(txt) {
+  const div = document.createElement("div");
+  div.textContent = txt || "";
+  return div.innerHTML;
+}
+
+// Rafraîchit les compteurs chaque minute
+setInterval(() => { if (auth.currentUser) ecouterEvenements(); }, 60000);
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
