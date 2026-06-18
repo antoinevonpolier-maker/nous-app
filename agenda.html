@@ -181,6 +181,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
 
 <script>
@@ -248,9 +249,12 @@ function ecouterEvenements() {
         return;
       }
 
-      const evts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const futurs = evts.filter(e => e.date && e.date.toDate() >= maintenant);
-      const passes = evts.filter(e => e.date && e.date.toDate() < maintenant).reverse();
+      // On ne garde que les événements dont la date est exploitable
+      const evts = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(e => e.date && typeof e.date.toDate === "function");
+      const futurs = evts.filter(e => e.date.toDate() >= maintenant);
+      const passes = evts.filter(e => e.date.toDate() < maintenant).reverse();
 
       // Bloc "prochain moment" mis en avant
       if (futurs.length > 0) {
@@ -287,6 +291,14 @@ function ecouterEvenements() {
           await db.collection("evenements").doc(b.dataset.id).delete();
         });
       });
+    }, (erreur) => {
+      // En cas d'erreur (ex: index manquant), on affiche un message au lieu de charger sans fin
+      const liste = document.getElementById("liste");
+      liste.className = "";
+      console.error("Erreur agenda :", erreur);
+      liste.innerHTML = `<div class="vide-msg"><div class="emoji">⚠️</div>
+        <p>Impossible de charger l'agenda.<br>
+        <span style="font-size:11px">${erreur.message}</span></p></div>`;
     });
 }
 
@@ -325,8 +337,7 @@ function echapper(txt) {
   return div.innerHTML;
 }
 
-// Rafraîchit les compteurs chaque minute
-setInterval(() => { if (auth.currentUser) ecouterEvenements(); }, 60000);
+// L'affichage se met à jour automatiquement en temps réel (onSnapshot ci-dessus).
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
