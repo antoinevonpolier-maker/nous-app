@@ -249,9 +249,24 @@ auth.onAuthStateChanged(async (user) => {
   }
   document.getElementById("contenu-app").style.display = "block";
   monPrenom = prenomDepuisEmail(user.email);
+  // On attend que le canvas ait une largeur réelle avant d'initialiser et de charger
+  await attendreCanvasPret();
   initCanvas();
   await chargerToile();
 });
+
+// Attend que le canvas soit bien affiché et dimensionné (largeur > 0)
+function attendreCanvasPret() {
+  return new Promise((resolve) => {
+    let essais = 0;
+    function verifier() {
+      if (canvas.offsetWidth > 0 || essais > 30) { resolve(); return; }
+      essais++;
+      requestAnimationFrame(verifier);
+    }
+    verifier();
+  });
+}
 
 function prenomDepuisEmail(email) {
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -302,10 +317,11 @@ async function chargerToile() {
   }, 4000);
   try {
     const doc = await db.collection("tableau").doc("commun").get();
-    if (doc.exists && doc.data().url) {
+    if (doc.exists && doc.data().image) {
       const d = doc.data();
-      await dessinerImageDeFond(d.url);
+      await dessinerImageDeFond(d.image);
       majInfoMaj(d.auteur, d.date);
+      document.getElementById("canvas-info").style.opacity = "0";
     }
   } catch (e) {
     console.log("Pas de toile existante :", e.message);
@@ -314,10 +330,10 @@ async function chargerToile() {
   document.getElementById("chargement-canvas").style.display = "none";
 }
 
-function dessinerImageDeFond(url) {
+function dessinerImageDeFond(dataURL) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    // Pas de crossOrigin : c'est une data URL locale, donc aucun souci CORS
     let fini = false;
     const termine = () => { if (!fini) { fini = true; resolve(); } };
     img.onload = () => {
@@ -328,7 +344,7 @@ function dessinerImageDeFond(url) {
     };
     img.onerror = () => { console.log("Erreur chargement image toile"); termine(); };
     setTimeout(termine, 3500); // sécurité : ne bloque jamais plus de 3,5s
-    img.src = url;
+    img.src = dataURL;
   });
 }
 
@@ -436,43 +452,43 @@ document.getElementById("btn-effacer").addEventListener("click", () => {
 const btnEnvoyer = document.getElementById("btn-envoyer");
 const progression = document.getElementById("progression");
 
-btnEnvoyer.addEventListener("click", () => {
+btnEnvoyer.addEventListener("click", async () => {
   btnEnvoyer.disabled = true;
   progression.style.display = "block";
-  progression.style.width = "15%";
+  progression.style.width = "30%";
 
-  canvas.toBlob(async (blob) => {
-    try {
-      // Toujours le même fichier : on écrase la toile précédente
-      const nom = "tableau/commun.png";
-      const ref = storage.ref().child(nom);
-      const tache = ref.put(blob);
-      tache.on("state_changed",
-        (snap) => { progression.style.width = ((snap.bytesTransferred / snap.totalBytes) * 80 + 15) + "%"; },
-        (err) => { alert("Erreur : " + err.message); btnEnvoyer.disabled = false; progression.style.display = "none"; },
-        async () => {
-          const url = await tache.snapshot.ref.getDownloadURL();
-          // Document unique "commun" : on le met à jour (set), pas d'historique
-          await db.collection("tableau").doc("commun").set({
-            url: url,
-            chemin: nom,
-            auteur: monPrenom,
-            date: firebase.firestore.FieldValue.serverTimestamp()
-          });
-          progression.style.width = "100%";
-          setTimeout(() => {
-            progression.style.display = "none"; progression.style.width = "0%";
-            btnEnvoyer.disabled = false;
-            document.getElementById("statut").textContent = "Enregistré ! 💕";
-            majInfoMaj(monPrenom, { toDate: () => new Date() });
-          }, 400);
-        }
-      );
-    } catch (err) {
-      alert("Erreur : " + err.message);
-      btnEnvoyer.disabled = false; progression.style.display = "none";
+  try {
+    // On exporte le dessin en JPEG compressé (léger) sous forme de texte (data URL).
+    // Stocké directement dans Firestore -> aucun problème de CORS au rechargement.
+    const dataURL = canvas.toDataURL("image/jpeg", 0.7);
+    progression.style.width = "60%";
+
+    // Sécurité : Firestore limite un document à ~1 Mo. On vérifie la taille.
+    const tailleKo = Math.round(dataURL.length / 1024);
+    if (dataURL.length > 950000) {
+      alert("Le dessin est trop lourd. Essaie d'effacer une partie et de réessayer.");
+      btnEnvoyer.disabled = false;
+      progression.style.display = "none";
+      return;
     }
-  }, "image/png");
+
+    await db.collection("tableau").doc("commun").set({
+      image: dataURL,
+      auteur: monPrenom,
+      date: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    progression.style.width = "100%";
+    setTimeout(() => {
+      progression.style.display = "none"; progression.style.width = "0%";
+      btnEnvoyer.disabled = false;
+      document.getElementById("statut").textContent = "Enregistré ! 💕";
+      majInfoMaj(monPrenom, { toDate: () => new Date() });
+    }, 400);
+  } catch (err) {
+    alert("Erreur : " + err.message);
+    btnEnvoyer.disabled = false; progression.style.display = "none";
+  }
 });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
