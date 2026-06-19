@@ -67,7 +67,7 @@
   .nav {
     position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 430px;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    background: rgba(255,255,255,0.97); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--bordure);
     display: flex; justify-content: space-around;
     padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 100;
@@ -95,14 +95,6 @@
   ::view-transition-new(barre-nav) { animation: none; }
 
   /* Fond de sécurité en bas harmonisé avec la barre (corrige le "blanc" sous la nav) */
-  .nav::after {
-    content: "";
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: env(safe-area-inset-bottom);
-    background: rgba(255,255,255,0.92);
-    transform: translateY(100%);
-  }
 
   /* Apparition douce des cartes au chargement */
   @keyframes monteeDouce {
@@ -189,9 +181,36 @@ let monPrenom = "";
 auth.onAuthStateChanged((user) => {
   if (!user) { window.location.href = "index.html"; return; }
   document.getElementById("contenu-app").style.display = "block";
+  definirLangue(user.email);
+  traduireInterface();
   monPrenom = prenomDepuisEmail(user.email);
   ecouterNote();
 });
+
+// Traduit les textes statiques de la page si Silvia est connectée
+function traduireInterface() {
+  if (!LANGUE_US) return;
+  document.querySelector(".topbar h1").textContent = t("Nos notes");
+  document.querySelector(".info-notes span").innerHTML =
+    t("Bloc-notes partagé, sauvegarde automatique.") + '<span class="maj" id="derniere-maj"></span>';
+  document.getElementById("note").placeholder = t("Écrivez ici à deux…\n\n🛒 Courses : lait, œufs, pâtes\n🎬 Films à voir : Inception, Amélie Poulain\n💡 Idées : week-end à la mer ?\n\nTout ce que vous tapez est partagé en temps réel.");
+  // Onglets de navigation
+  traduireNav();
+}
+
+// Traduit les libellés de la barre de navigation
+function traduireNav() {
+  if (!LANGUE_US) return;
+  const libelles = { "Accueil": "Home", "Photos": "Photos", "Agenda": "Calendar", "Notes": "Notes", "Dessin": "Drawing" };
+  document.querySelectorAll(".nav a").forEach(a => {
+    const texte = a.textContent.trim();
+    if (libelles[texte]) {
+      // Remplacer seulement le texte (garder le SVG)
+      const noeudTexte = Array.from(a.childNodes).find(n => n.nodeType === 3 && n.textContent.trim());
+      if (noeudTexte) noeudTexte.textContent = libelles[texte];
+    }
+  });
+}
 
 function prenomDepuisEmail(email) {
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -230,11 +249,11 @@ function ecouterNote() {
       }
       if (premierChargement) {
         premierChargement = false;
-        etatTxt.textContent = "À jour";
+        etatTxt.textContent = t("À jour");
       }
     }, (err) => {
       console.error("Erreur notes :", err);
-      etatTxt.textContent = "Erreur de connexion";
+      etatTxt.textContent = t("Erreur de connexion");
     });
 }
 
@@ -264,18 +283,18 @@ async function sauvegarder() {
     enTrainDeTaper = false;
     marquerSauve();
   } catch (e) {
-    etatTxt.textContent = "Erreur de sauvegarde";
+    etatTxt.textContent = t("Erreur de sauvegarde");
     console.error(e);
   }
 }
 
 function marquerEnCours() {
   etat.className = "etat-sauvegarde en-cours";
-  etatTxt.textContent = "Sauvegarde…";
+  etatTxt.textContent = t("Sauvegarde…");
 }
 function marquerSauve() {
   etat.className = "etat-sauvegarde sauve";
-  etatTxt.textContent = "À jour";
+  etatTxt.textContent = t("À jour");
 }
 
 function majInfoMaj(auteur, timestamp) {
@@ -283,14 +302,9 @@ function majInfoMaj(auteur, timestamp) {
   if (!auteur) { el.textContent = ""; return; }
   let quand = "";
   if (timestamp && timestamp.toDate) {
-    const date = timestamp.toDate();
-    const sec = Math.floor((Date.now() - date) / 1000);
-    if (sec < 60) quand = "à l'instant";
-    else if (sec < 3600) quand = "il y a " + Math.floor(sec / 60) + " min";
-    else if (sec < 86400) quand = "il y a " + Math.floor(sec / 3600) + " h";
-    else quand = "il y a " + Math.floor(sec / 86400) + " j";
+    quand = tempsEcouleBilingue(timestamp);
   }
-  el.textContent = "Dernière modif : " + auteur + (quand ? " · " + quand : "");
+  el.textContent = t("Dernière modif :") + " " + auteur + (quand ? " · " + quand : "");
 }
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
