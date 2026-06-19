@@ -221,7 +221,7 @@
     bottom: 0; left: 50%;
     transform: translateX(-50%);
     width: 100%; max-width: 430px;
-    background: rgba(255,255,255,0.92);
+    background: rgba(255,255,255,0.97);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-top: 1px solid var(--bordure);
@@ -269,14 +269,6 @@
   ::view-transition-new(barre-nav) { animation: none; }
 
   /* Fond de sécurité en bas harmonisé avec la barre (corrige le "blanc" sous la nav) */
-  .nav::after {
-    content: "";
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: env(safe-area-inset-bottom);
-    background: rgba(255,255,255,0.92);
-    transform: translateY(100%);
-  }
 
   /* Apparition douce des cartes au chargement */
   @keyframes monteeDouce {
@@ -563,13 +555,26 @@ function ecouterApercus() {
   db.collection("tableau").doc("commun")
     .onSnapshot((doc) => {
       const cont = document.getElementById("apercu-dessin");
-      if (!doc.exists || !doc.data().image) { cont.innerHTML = '<div class="vide" style="color:#6a6a8e">✏️</div>'; return; }
-      const d = doc.data();
-      cont.innerHTML = `<img src="${d.image}" alt="dessin">
-        <div class="apercu-overlay">
-          <div class="qui">${d.auteur || ""}</div>
-          <div class="quand">${tempsEcoule(d.date)}</div>
-        </div>`;
+      const data = doc.exists ? doc.data() : null;
+      // On accepte le nouveau champ "image" (data URL) OU l'ancien "url" (compatibilité)
+      const source = data ? (data.image || data.url) : null;
+      if (!source) {
+        cont.innerHTML = '<div class="vide" style="color:#6a6a8e">✏️</div>';
+        return;
+      }
+      // Construction propre des éléments (évite tout souci avec les longues data URLs)
+      cont.innerHTML = "";
+      const img = document.createElement("img");
+      img.alt = "dessin";
+      img.src = source;
+      const overlay = document.createElement("div");
+      overlay.className = "apercu-overlay";
+      overlay.innerHTML = `<div class="qui">${data.auteur || ""}</div>
+        <div class="quand">${tempsEcoule(data.date)}</div>`;
+      cont.appendChild(img);
+      cont.appendChild(overlay);
+    }, (err) => {
+      console.error("Erreur aperçu dessin :", err);
     });
 }
 
