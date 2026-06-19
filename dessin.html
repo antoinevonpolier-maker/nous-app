@@ -17,7 +17,7 @@
   html, body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--fond); color: var(--texte);
-    overscroll-behavior: none; touch-action: none;
+    overscroll-behavior: none;
   }
   body { max-width: 430px; margin: 0 auto; min-height: 100dvh; padding-bottom: 88px; }
 
@@ -232,7 +232,7 @@ let aDessine = false;
 function dimensionnerCanvas() {
   const ratio = window.devicePixelRatio || 1;
   const largeur = canvas.offsetWidth;
-  const hauteur = Math.round(largeur * 1.15); // format portrait léger
+  const hauteur = Math.round(largeur * 0.9); // format un peu plus compact pour tenir à l'écran
   canvas.width = largeur * ratio;
   canvas.height = hauteur * ratio;
   canvas.style.height = hauteur + "px";
@@ -351,7 +351,7 @@ document.getElementById("btn-repondre").addEventListener("click", () => {
   tmp.crossOrigin = "anonymous";
   tmp.onload = () => {
     fondSombre();
-    ctx.drawImage(tmp, 0, 0, canvas.offsetWidth, canvas.offsetWidth * 1.15);
+    ctx.drawImage(tmp, 0, 0, canvas.offsetWidth, canvas.offsetWidth * 0.9);
     document.getElementById("btn-fond").style.display = "block";
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
