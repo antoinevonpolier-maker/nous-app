@@ -563,9 +563,9 @@ function ecouterApercus() {
   db.collection("tableau").doc("commun")
     .onSnapshot((doc) => {
       const cont = document.getElementById("apercu-dessin");
-      if (!doc.exists || !doc.data().url) { cont.innerHTML = '<div class="vide" style="color:#6a6a8e">✏️</div>'; return; }
+      if (!doc.exists || !doc.data().image) { cont.innerHTML = '<div class="vide" style="color:#6a6a8e">✏️</div>'; return; }
       const d = doc.data();
-      cont.innerHTML = `<img src="${d.url}" alt="dessin">
+      cont.innerHTML = `<img src="${d.image}" alt="dessin">
         <div class="apercu-overlay">
           <div class="qui">${d.auteur || ""}</div>
           <div class="quand">${tempsEcoule(d.date)}</div>
