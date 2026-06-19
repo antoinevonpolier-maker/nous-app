@@ -446,25 +446,25 @@ document.getElementById("btn-deconnexion").addEventListener("click", () => {
   auth.signOut();
 });
 
-// ====== BASCULE LOGIN / APP ======
-auth.onAuthStateChanged((user) => {
-  if (user) {
-    document.getElementById("login").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    document.getElementById("nav").style.display = "flex";
-    demarrerAccueil();
+// ====== FORMAT D'AFFICHAGE selon qui est connecté ======
+// Antoine (France) : 24h + Celsius. Silvia (USA) : AM/PM + Fahrenheit.
+let formatUS = false;
+function definirFormat(email) {
+  const local = (email || "").toLowerCase();
+  if (local.includes(COUPLE.personneB.prenom.toLowerCase())) {
+    formatUS = true;
   } else {
-    document.getElementById("login").style.display = "flex";
-    document.getElementById("app").style.display = "none";
-    document.getElementById("nav").style.display = "none";
+    formatUS = false;
   }
-});
+}
 
 // ====== ACCUEIL ======
 let accueilDemarre = false;
-function demarrerAccueil() {
+function demarrerAccueil(user) {
   if (accueilDemarre) return;
   accueilDemarre = true;
+
+  definirFormat(user ? user.email : "");
 
   // Personnaliser depuis COUPLE
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -491,10 +491,25 @@ function majHorloges() {
 }
 function afficherHeure(idHeure, idDate, tz) {
   const maintenant = new Date();
-  const h = new Intl.DateTimeFormat("fr-FR", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(maintenant);
-  const [heure, minute] = h.split(":");
-  document.getElementById(idHeure).innerHTML = heure + '<span class="min">:' + minute + '</span>';
-  const d = new Intl.DateTimeFormat("fr-FR", { timeZone: tz, weekday: "short", day: "numeric", month: "short" }).format(maintenant);
+  // Langue et format selon qui est connecté
+  const langue = formatUS ? "en-US" : "fr-FR";
+  if (formatUS) {
+    // Format américain : 2:30 PM
+    const h = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).format(maintenant);
+    // h ressemble à "2:30 PM" -> on sépare l'heure:minute du AM/PM
+    const match = h.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (match) {
+      document.getElementById(idHeure).innerHTML = match[1] + '<span class="min">:' + match[2] + ' ' + match[3] + '</span>';
+    } else {
+      document.getElementById(idHeure).textContent = h;
+    }
+  } else {
+    // Format français : 14h30 -> on garde 14:30 avec le style existant
+    const h = new Intl.DateTimeFormat("fr-FR", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(maintenant);
+    const [heure, minute] = h.split(":");
+    document.getElementById(idHeure).innerHTML = heure + '<span class="min">:' + minute + '</span>';
+  }
+  const d = new Intl.DateTimeFormat(langue, { timeZone: tz, weekday: "short", day: "numeric", month: "short" }).format(maintenant);
   document.getElementById(idDate).textContent = d;
 }
 
@@ -513,12 +528,15 @@ async function chargerMeteo() {
 }
 async function chargerMeteoVille(p, id) {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code`;
+    // Unité selon qui est connecté : Fahrenheit pour Silvia, Celsius pour Antoine
+    const uniteParam = formatUS ? "&temperature_unit=fahrenheit" : "";
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code${uniteParam}`;
     const r = await fetch(url);
     const data = await r.json();
     const temp = Math.round(data.current.temperature_2m);
     const emoji = emojiMeteo(data.current.weather_code);
-    document.getElementById(id).textContent = `${emoji} ${temp}°`;
+    const symbole = formatUS ? "°F" : "°";
+    document.getElementById(id).textContent = `${emoji} ${temp}${symbole}`;
   } catch (e) {
     document.getElementById(id).textContent = "indispo";
   }
@@ -630,6 +648,20 @@ function echapper(txt) {
   div.textContent = txt || "";
   return div.innerHTML;
 }
+
+// ====== BASCULE LOGIN / APP (placé en fin de script pour que tout soit déclaré) ======
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    document.getElementById("login").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("nav").style.display = "flex";
+    demarrerAccueil(user);
+  } else {
+    document.getElementById("login").style.display = "flex";
+    document.getElementById("app").style.display = "none";
+    document.getElementById("nav").style.display = "none";
+  }
+});
 
 // ====== SERVICE WORKER (PWA) ======
 if ("serviceWorker" in navigator) {
