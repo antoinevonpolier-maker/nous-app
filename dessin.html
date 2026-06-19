@@ -248,12 +248,31 @@ auth.onAuthStateChanged(async (user) => {
     return;
   }
   document.getElementById("contenu-app").style.display = "block";
+  definirLangue(user.email);
+  traduireDessin();
   monPrenom = prenomDepuisEmail(user.email);
   // On attend que le canvas ait une largeur réelle avant d'initialiser et de charger
   await attendreCanvasPret();
   initCanvas();
   await chargerToile();
 });
+
+// Traduit les textes statiques de la page dessin
+function traduireDessin() {
+  if (!LANGUE_US) return;
+  document.querySelector(".topbar h1").textContent = t("Tableau partagé");
+  document.getElementById("statut").textContent = t("Votre toile commune 💕");
+  const labels = document.querySelectorAll(".ligne-label");
+  if (labels[0]) labels[0].textContent = t("Couleur");
+  if (labels[1]) labels[1].textContent = t("Épaisseur");
+  document.getElementById("btn-effacer").textContent = t("Tout effacer");
+  document.getElementById("btn-envoyer").textContent = t("Enregistrer 💌");
+  document.getElementById("canvas-info").textContent = t("✏️ Dessine avec ton doigt");
+  document.getElementById("chargement-canvas").textContent = t("Chargement de la toile…");
+  const infoSpan = document.querySelector(".info-tableau span");
+  if (infoSpan) infoSpan.innerHTML = t("Une seule toile partagée : dessinez chacun votre tour.") + ' <span class="maj" id="derniere-maj"></span>';
+  traduireNavCommune();
+}
 
 // Attend que le canvas soit bien affiché et dimensionné (largeur > 0)
 function attendreCanvasPret() {
@@ -353,14 +372,9 @@ function majInfoMaj(auteur, timestamp) {
   if (!auteur) { el.textContent = ""; return; }
   let quand = "";
   if (timestamp && timestamp.toDate) {
-    const date = timestamp.toDate();
-    const sec = Math.floor((Date.now() - date) / 1000);
-    if (sec < 60) quand = "à l'instant";
-    else if (sec < 3600) quand = "il y a " + Math.floor(sec / 60) + " min";
-    else if (sec < 86400) quand = "il y a " + Math.floor(sec / 3600) + " h";
-    else quand = "il y a " + Math.floor(sec / 86400) + " j";
+    quand = tempsEcouleBilingue(timestamp);
   }
-  el.textContent = "Dernière touche : " + auteur + (quand ? " · " + quand : "");
+  el.textContent = t("Dernière touche :") + " " + auteur + (quand ? " · " + quand : "");
 }
 
 // ====== DESSIN ======
@@ -435,7 +449,7 @@ let gommeActive = false;
 const btnGomme = document.createElement("div");
 btnGomme.id = "btn-gomme";
 btnGomme.className = "pastille gomme";
-btnGomme.title = "Gomme";
+btnGomme.title = t("Gomme");
 btnGomme.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4L13 20"/><path d="M6 11l7 7"/></svg>`;
 btnGomme.addEventListener("click", () => {
   gommeActive = true;
@@ -466,7 +480,7 @@ tailles.forEach((t, i) => {
 
 // ====== TOUT EFFACER ======
 document.getElementById("btn-effacer").addEventListener("click", () => {
-  if (!confirm("Effacer toute la toile et repartir d'une page blanche ?")) return;
+  if (!confirm(t("Effacer toute la toile et repartir d'une page blanche ?"))) return;
   fondSombre();
   document.getElementById("canvas-info").style.opacity = "1";
 });
@@ -489,7 +503,7 @@ btnEnvoyer.addEventListener("click", async () => {
     // Sécurité : Firestore limite un document à ~1 Mo. On vérifie la taille.
     const tailleKo = Math.round(dataURL.length / 1024);
     if (dataURL.length > 950000) {
-      alert("Le dessin est trop lourd. Essaie d'effacer une partie et de réessayer.");
+      alert(t("Le dessin est trop lourd. Essaie d'effacer une partie et de réessayer."));
       btnEnvoyer.disabled = false;
       progression.style.display = "none";
       return;
@@ -505,7 +519,7 @@ btnEnvoyer.addEventListener("click", async () => {
     setTimeout(() => {
       progression.style.display = "none"; progression.style.width = "0%";
       btnEnvoyer.disabled = false;
-      document.getElementById("statut").textContent = "Enregistré ! 💕";
+      document.getElementById("statut").textContent = t("Enregistré ! 💕");
       majInfoMaj(monPrenom, { toDate: () => new Date() });
     }, 400);
   } catch (err) {
