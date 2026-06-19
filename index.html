@@ -465,6 +465,8 @@ function demarrerAccueil(user) {
   accueilDemarre = true;
 
   definirFormat(user ? user.email : "");
+  definirLangue(user ? user.email : "");
+  traduireAccueil();
 
   // Personnaliser depuis COUPLE
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -481,6 +483,22 @@ function demarrerAccueil(user) {
   chargerMeteo();
   ecouterApercus();
   ecouterAgenda();
+}
+
+// Traduit les textes statiques de l'accueil
+function traduireAccueil() {
+  if (!LANGUE_US) return;
+  document.querySelector("#compteur small").textContent = t("jours");
+  const labels = document.querySelectorAll(".apercu-label");
+  if (labels[0]) labels[0].textContent = t("Photo du jour");
+  if (labels[1]) labels[1].textContent = t("Dernier dessin");
+  const sections = document.querySelectorAll(".titre-section");
+  sections.forEach(s => {
+    const txt = s.textContent.trim();
+    if (txt === "Météo") s.textContent = t("Météo");
+    if (txt === "Prochains moments") s.textContent = t("Prochains moments");
+  });
+  traduireNavCommune();
 }
 
 // --- Horloges en temps réel ---
@@ -607,7 +625,7 @@ function ecouterAgenda() {
         .filter(e => e.date && e.date.toDate() >= maintenant)
         .slice(0, 3);
       if (futurs.length === 0) {
-        bloc.innerHTML = '<div class="agenda-vide">Aucun moment prévu.<br>Ajoutez-en un ! →</div>';
+        bloc.innerHTML = '<div class="agenda-vide">' + t("Aucun moment prévu.") + '<br>' + t("Ajoutez-en un ! →") + '</div>';
         return;
       }
       let html = "";
@@ -624,25 +642,8 @@ function ecouterAgenda() {
 }
 
 // ====== UTILITAIRES ======
-function tempsEcoule(timestamp) {
-  if (!timestamp) return "";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const sec = Math.floor((Date.now() - date) / 1000);
-  if (sec < 60) return "à l'instant";
-  if (sec < 3600) return "il y a " + Math.floor(sec / 60) + " min";
-  if (sec < 86400) return "il y a " + Math.floor(sec / 3600) + " h";
-  return "il y a " + Math.floor(sec / 86400) + " j";
-}
-function compteARebours(timestamp) {
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const diff = date - Date.now();
-  const jours = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const heures = Math.floor(diff / (1000 * 60 * 60));
-  if (jours >= 1) return "dans " + jours + " j";
-  if (heures >= 1) return "dans " + heures + " h";
-  if (diff > 0) return "bientôt";
-  return "maintenant";
-}
+function tempsEcoule(timestamp) { return tempsEcouleBilingue(timestamp); }
+function compteARebours(timestamp) { return compteAReboursBilingue(timestamp); }
 function echapper(txt) {
   const div = document.createElement("div");
   div.textContent = txt || "";
