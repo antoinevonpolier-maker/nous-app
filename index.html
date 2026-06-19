@@ -41,7 +41,7 @@
   #login {
     min-height: 100vh;
     min-height: 100dvh;
-    display: flex;
+    display: none; /* masqué au départ, affiché seulement si non connecté (évite le flash) */
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -503,12 +503,12 @@ function ecouterApercus() {
         </div>`;
     });
 
-  // Dernier dessin
-  db.collection("dessins").orderBy("date", "desc").limit(1)
-    .onSnapshot((snap) => {
+  // Toile partagée commune (document unique)
+  db.collection("tableau").doc("commun")
+    .onSnapshot((doc) => {
       const cont = document.getElementById("apercu-dessin");
-      if (snap.empty) { cont.innerHTML = '<div class="vide" style="color:#6a6a8e">✏️</div>'; return; }
-      const d = snap.docs[0].data();
+      if (!doc.exists || !doc.data().url) { cont.innerHTML = '<div class="vide" style="color:#6a6a8e">✏️</div>'; return; }
+      const d = doc.data();
       cont.innerHTML = `<img src="${d.url}" alt="dessin">
         <div class="apercu-overlay">
           <div class="qui">${d.auteur || ""}</div>
