@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#1a1a2e">
 <title>Dessin — Nous</title>
 <link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <style>
   :root {
@@ -21,10 +22,13 @@
   }
   body { max-width: 430px; margin: 0 auto; min-height: 100dvh; padding-bottom: 88px; }
 
+  /* Masqué tant que la connexion n'est pas confirmée (évite le flash de login) */
+  #contenu-app { display: none; }
+
   .topbar {
     background: linear-gradient(160deg, #9B6B8A, #7B9BBE);
     padding: calc(env(safe-area-inset-top) + 18px) 20px 16px;
-    color: white; border-radius: 0 0 24px 24px;
+    color: #fff; border-radius: 0 0 24px 24px;
     display: flex; justify-content: space-between; align-items: center;
   }
   .topbar h1 { font-size: 20px; font-weight: 600; }
@@ -41,10 +45,13 @@
   .canvas-info {
     position: absolute; top: 10px; left: 12px;
     font-size: 10px; color: rgba(255,255,255,0.4);
-    pointer-events: none;
+    pointer-events: none; transition: opacity 0.3s;
+  }
+  #chargement-canvas {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #1a1a2e; color: rgba(255,255,255,0.5); font-size: 13px;
   }
 
-  /* Outils */
   .outils {
     margin-top: 14px; background: white; border-radius: var(--radius);
     border: 1px solid var(--bordure); padding: 14px;
@@ -76,17 +83,16 @@
   }
   .actions button:active { transform: scale(0.97); }
   .btn-effacer { background: #f0eef0; color: var(--texte); flex: 0 0 auto; padding: 14px 18px; }
-  .btn-fond { background: #eef2f6; color: var(--bleu); flex: 0 0 auto; padding: 14px 18px; font-size: 13px; }
   .btn-envoyer { background: var(--mauve); color: white; flex: 1; }
   .btn-envoyer:disabled { opacity: 0.6; }
 
-  .reception {
-    margin: 14px; background: white; border-radius: var(--radius);
-    border: 1px solid var(--bordure); padding: 14px; text-align: center;
+  .info-tableau {
+    margin: 14px; background: #f3eaef; border-radius: 12px;
+    padding: 10px 14px; font-size: 12px; color: var(--mauve);
+    display: flex; align-items: center; gap: 8px; line-height: 1.4;
   }
-  .reception .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--texte-doux); font-weight: 600; margin-bottom: 8px; }
-  .reception img { width: 100%; border-radius: 12px; background: #1a1a2e; }
-  .reception .meta { font-size: 12px; color: var(--texte-doux); margin-top: 8px; }
+  .info-tableau svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .info-tableau .maj { font-size: 11px; opacity: 0.75; }
 
   #progression {
     display: none; position: fixed; top: 0; left: 0; right: 0;
@@ -114,42 +120,42 @@
 
 <div id="progression"></div>
 
-<div class="topbar">
-  <div>
-    <h1>Tableau partagé</h1>
-    <div class="statut" id="statut">Dessine quelque chose pour Silvia 💕</div>
-  </div>
-</div>
-
-<div class="zone-dessin">
-  <div class="canvas-cadre">
-    <canvas id="canvas"></canvas>
-    <div class="canvas-info">✏️ Dessine avec ton doigt</div>
-  </div>
-
-  <div class="outils">
-    <div class="ligne-outils">
-      <span class="ligne-label">Couleur</span>
-      <div class="couleurs" id="couleurs"></div>
-    </div>
-    <div class="ligne-outils">
-      <span class="ligne-label">Épaisseur</span>
-      <div class="epaisseurs" id="epaisseurs"></div>
+<div id="contenu-app">
+  <div class="topbar">
+    <div>
+      <h1>Tableau partagé</h1>
+      <div class="statut" id="statut">Votre toile commune 💕</div>
     </div>
   </div>
 
-  <div class="actions">
-    <button class="btn-effacer" id="btn-effacer">Effacer</button>
-    <button class="btn-fond" id="btn-fond" style="display:none">Repartir vierge</button>
-    <button class="btn-envoyer" id="btn-envoyer">Envoyer 💌</button>
-  </div>
-</div>
+  <div class="zone-dessin">
+    <div class="canvas-cadre">
+      <canvas id="canvas"></canvas>
+      <div class="canvas-info" id="canvas-info">✏️ Dessine avec ton doigt</div>
+      <div id="chargement-canvas">Chargement de la toile…</div>
+    </div>
 
-<div class="reception" id="reception" style="display:none">
-  <div class="label">Dernier dessin reçu</div>
-  <img id="img-recue" src="" alt="dessin reçu">
-  <div class="meta" id="meta-recue"></div>
-  <button class="btn-fond" id="btn-repondre" style="display:inline-block; margin-top:12px; background:#f3eaef; color:var(--mauve)">✏️ Répondre par-dessus</button>
+    <div class="outils">
+      <div class="ligne-outils">
+        <span class="ligne-label">Couleur</span>
+        <div class="couleurs" id="couleurs"></div>
+      </div>
+      <div class="ligne-outils">
+        <span class="ligne-label">Épaisseur</span>
+        <div class="epaisseurs" id="epaisseurs"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-effacer" id="btn-effacer">Tout effacer</button>
+      <button class="btn-envoyer" id="btn-envoyer">Enregistrer 💌</button>
+    </div>
+  </div>
+
+  <div class="info-tableau">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <span>Une seule toile partagée : dessinez chacun votre tour. <span class="maj" id="derniere-maj"></span></span>
+  </div>
 </div>
 
 <nav class="nav">
@@ -178,38 +184,18 @@
 <script src="firebase-config.js"></script>
 
 <script>
-protegerPage();
-
-const JOURS_AVANT_SUPPRESSION = 7;
-
+// On gère l'auth ici (sans flash) : tant que pas confirmé, on n'affiche rien d'utile
 let monPrenom = "";
 auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    monPrenom = prenomDepuisEmail(user.email);
-    const autre = (monPrenom === COUPLE.personneA.prenom) ? COUPLE.personneB.prenom : COUPLE.personneA.prenom;
-    document.getElementById("statut").textContent = "Dessine quelque chose pour " + autre + " 💕";
-    await nettoyerAnciensDessins();
-    ecouterDernierDessin();
+  if (!user) {
+    window.location.href = "index.html";
+    return;
   }
+  document.getElementById("contenu-app").style.display = "block";
+  monPrenom = prenomDepuisEmail(user.email);
+  initCanvas();
+  await chargerToile();
 });
-
-// Nettoyage auto : tous les dessins de plus de 7 jours sont supprimés (pas d'option garder)
-async function nettoyerAnciensDessins() {
-  try {
-    const limite = new Date();
-    limite.setDate(limite.getDate() - JOURS_AVANT_SUPPRESSION);
-    const limiteTs = firebase.firestore.Timestamp.fromDate(limite);
-    const snap = await db.collection("dessins").where("date", "<", limiteTs).get();
-    for (const doc of snap.docs) {
-      const d = doc.data();
-      if (d.chemin) await storage.ref().child(d.chemin).delete().catch(() => {});
-      await doc.ref.delete().catch(() => {});
-    }
-    if (snap.size > 0) console.log(snap.size + " dessin(s) nettoye(s).");
-  } catch (e) {
-    console.log("Nettoyage dessins ignore :", e.message);
-  }
-}
 
 function prenomDepuisEmail(email) {
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -226,13 +212,14 @@ let dessine = false;
 let dernierX = 0, dernierY = 0;
 let couleurActuelle = "#ff9eb5";
 let epaisseurActuelle = 4;
-let aDessine = false;
+let canvasPret = false;
 
-// Dimensionner le canvas (haute résolution)
-function dimensionnerCanvas() {
+function initCanvas() {
+  if (canvasPret) return;
+  canvasPret = true;
   const ratio = window.devicePixelRatio || 1;
   const largeur = canvas.offsetWidth;
-  const hauteur = Math.round(largeur * 0.9); // format un peu plus compact pour tenir à l'écran
+  const hauteur = Math.round(largeur * 0.9);
   canvas.width = largeur * ratio;
   canvas.height = hauteur * ratio;
   canvas.style.height = hauteur + "px";
@@ -240,34 +227,87 @@ function dimensionnerCanvas() {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   fondSombre();
+  brancherEvenements();
 }
+
 function fondSombre() {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#1a1a2e";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 }
-setTimeout(dimensionnerCanvas, 50);
 
-// Coordonnées tactiles/souris
+// ====== CHARGER LA TOILE COMMUNE depuis Firebase ======
+async function chargerToile() {
+  // Sécurité : on masque l'écran de chargement au bout de 4s quoi qu'il arrive
+  const secu = setTimeout(() => {
+    document.getElementById("chargement-canvas").style.display = "none";
+  }, 4000);
+  try {
+    const doc = await db.collection("tableau").doc("commun").get();
+    if (doc.exists && doc.data().url) {
+      const d = doc.data();
+      await dessinerImageDeFond(d.url);
+      majInfoMaj(d.auteur, d.date);
+    }
+  } catch (e) {
+    console.log("Pas de toile existante :", e.message);
+  }
+  clearTimeout(secu);
+  document.getElementById("chargement-canvas").style.display = "none";
+}
+
+function dessinerImageDeFond(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    let fini = false;
+    const termine = () => { if (!fini) { fini = true; resolve(); } };
+    img.onload = () => {
+      const l = canvas.offsetWidth;
+      const h = Math.round(l * 0.9);
+      ctx.drawImage(img, 0, 0, l, h);
+      termine();
+    };
+    img.onerror = () => { console.log("Erreur chargement image toile"); termine(); };
+    setTimeout(termine, 3500); // sécurité : ne bloque jamais plus de 3,5s
+    img.src = url;
+  });
+}
+
+function majInfoMaj(auteur, timestamp) {
+  const el = document.getElementById("derniere-maj");
+  if (!auteur) { el.textContent = ""; return; }
+  let quand = "";
+  if (timestamp && timestamp.toDate) {
+    const date = timestamp.toDate();
+    const sec = Math.floor((Date.now() - date) / 1000);
+    if (sec < 60) quand = "à l'instant";
+    else if (sec < 3600) quand = "il y a " + Math.floor(sec / 60) + " min";
+    else if (sec < 86400) quand = "il y a " + Math.floor(sec / 3600) + " h";
+    else quand = "il y a " + Math.floor(sec / 86400) + " j";
+  }
+  el.textContent = "Dernière touche : " + auteur + (quand ? " · " + quand : "");
+}
+
+// ====== DESSIN ======
 function position(e) {
   const rect = canvas.getBoundingClientRect();
   const point = e.touches ? e.touches[0] : e;
-  return {
-    x: point.clientX - rect.left,
-    y: point.clientY - rect.top
-  };
+  return { x: point.clientX - rect.left, y: point.clientY - rect.top };
 }
-
 function debut(e) {
   e.preventDefault();
   dessine = true;
   const p = position(e);
   dernierX = p.x; dernierY = p.y;
-  // Point initial (permet de poser un point sans bouger)
   ctx.beginPath();
   ctx.arc(p.x, p.y, epaisseurActuelle / 2, 0, Math.PI * 2);
   ctx.fillStyle = couleurActuelle;
   ctx.fill();
-  aDessine = true;
+  // cache l'indice "dessine avec ton doigt" au premier trait
+  document.getElementById("canvas-info").style.opacity = "0";
 }
 function bouge(e) {
   if (!dessine) return;
@@ -281,18 +321,17 @@ function bouge(e) {
   ctx.stroke();
   dernierX = p.x; dernierY = p.y;
 }
-function fin(e) {
-  if (e) e.preventDefault();
-  dessine = false;
-}
+function fin(e) { if (e) e.preventDefault(); dessine = false; }
 
-canvas.addEventListener("mousedown", debut);
-canvas.addEventListener("mousemove", bouge);
-canvas.addEventListener("mouseup", fin);
-canvas.addEventListener("mouseout", fin);
-canvas.addEventListener("touchstart", debut, { passive: false });
-canvas.addEventListener("touchmove", bouge, { passive: false });
-canvas.addEventListener("touchend", fin, { passive: false });
+function brancherEvenements() {
+  canvas.addEventListener("mousedown", debut);
+  canvas.addEventListener("mousemove", bouge);
+  canvas.addEventListener("mouseup", fin);
+  canvas.addEventListener("mouseout", fin);
+  canvas.addEventListener("touchstart", debut, { passive: false });
+  canvas.addEventListener("touchmove", bouge, { passive: false });
+  canvas.addEventListener("touchend", fin, { passive: false });
+}
 
 // ====== COULEURS ======
 const palette = ["#ff9eb5", "#9eb5ff", "#ffffff", "#ffe066", "#7ee0a0", "#ff8a5c", "#c89eff", "#000000"];
@@ -330,58 +369,35 @@ tailles.forEach((t, i) => {
   contEp.appendChild(b);
 });
 
-// ====== ACTIONS ======
+// ====== TOUT EFFACER ======
 document.getElementById("btn-effacer").addEventListener("click", () => {
+  if (!confirm("Effacer toute la toile et repartir d'une page blanche ?")) return;
   fondSombre();
-  aDessine = false;
-  document.getElementById("btn-fond").style.display = "none";
+  document.getElementById("canvas-info").style.opacity = "1";
 });
 
-document.getElementById("btn-fond").addEventListener("click", () => {
-  fondSombre();
-  aDessine = false;
-  document.getElementById("btn-fond").style.display = "none";
-});
-
-// Répondre par-dessus le dessin reçu
-document.getElementById("btn-repondre").addEventListener("click", () => {
-  const img = document.getElementById("img-recue");
-  if (!img.src) return;
-  const tmp = new Image();
-  tmp.crossOrigin = "anonymous";
-  tmp.onload = () => {
-    fondSombre();
-    ctx.drawImage(tmp, 0, 0, canvas.offsetWidth, canvas.offsetWidth * 0.9);
-    document.getElementById("btn-fond").style.display = "block";
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-  tmp.onerror = () => alert("Impossible de charger le dessin pour répondre.");
-  tmp.src = img.src;
-});
-
-// ====== ENVOI ======
+// ====== ENREGISTRER (remplace la toile commune) ======
 const btnEnvoyer = document.getElementById("btn-envoyer");
 const progression = document.getElementById("progression");
 
 btnEnvoyer.addEventListener("click", () => {
-  if (!aDessine) { alert("Dessine quelque chose d'abord ! ✏️"); return; }
   btnEnvoyer.disabled = true;
   progression.style.display = "block";
   progression.style.width = "15%";
 
   canvas.toBlob(async (blob) => {
     try {
-      const nom = "dessins/" + Date.now() + ".png";
+      // Toujours le même fichier : on écrase la toile précédente
+      const nom = "tableau/commun.png";
       const ref = storage.ref().child(nom);
       const tache = ref.put(blob);
       tache.on("state_changed",
-        (snap) => {
-          progression.style.width = ((snap.bytesTransferred / snap.totalBytes) * 80 + 15) + "%";
-        },
+        (snap) => { progression.style.width = ((snap.bytesTransferred / snap.totalBytes) * 80 + 15) + "%"; },
         (err) => { alert("Erreur : " + err.message); btnEnvoyer.disabled = false; progression.style.display = "none"; },
         async () => {
           const url = await tache.snapshot.ref.getDownloadURL();
-          await db.collection("dessins").add({
+          // Document unique "commun" : on le met à jour (set), pas d'historique
+          await db.collection("tableau").doc("commun").set({
             url: url,
             chemin: nom,
             auteur: monPrenom,
@@ -391,8 +407,8 @@ btnEnvoyer.addEventListener("click", () => {
           setTimeout(() => {
             progression.style.display = "none"; progression.style.width = "0%";
             btnEnvoyer.disabled = false;
-            fondSombre(); aDessine = false;
-            document.getElementById("statut").textContent = "Envoyé ! 💕";
+            document.getElementById("statut").textContent = "Enregistré ! 💕";
+            majInfoMaj(monPrenom, { toDate: () => new Date() });
           }, 400);
         }
       );
@@ -402,32 +418,6 @@ btnEnvoyer.addEventListener("click", () => {
     }
   }, "image/png");
 });
-
-// ====== RÉCEPTION (dernier dessin) ======
-function ecouterDernierDessin() {
-  db.collection("dessins").orderBy("date", "desc").limit(1)
-    .onSnapshot((snap) => {
-      if (snap.empty) return;
-      const d = snap.docs[0].data();
-      const reception = document.getElementById("reception");
-      reception.style.display = "block";
-      document.getElementById("img-recue").src = d.url;
-      document.getElementById("img-recue").crossOrigin = "anonymous";
-      const date = d.date ? d.date.toDate() : null;
-      document.getElementById("meta-recue").textContent =
-        "Par " + (d.auteur || "?") + (date ? " · " + tempsEcoule(date) : "");
-    });
-}
-
-function tempsEcoule(date) {
-  const sec = Math.floor((Date.now() - date) / 1000);
-  if (sec < 60) return "à l'instant";
-  if (sec < 3600) return "il y a " + Math.floor(sec / 60) + " min";
-  if (sec < 86400) return "il y a " + Math.floor(sec / 3600) + " h";
-  return "il y a " + Math.floor(sec / 86400) + " j";
-}
-
-window.addEventListener("resize", () => { /* on évite de redimensionner pour ne pas effacer */ });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
