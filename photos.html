@@ -132,6 +132,58 @@
   .nav a svg { width: 23px; height: 23px; }
 
   .chargement { text-align: center; color: var(--texte-doux); padding: 40px; font-size: 13px; }
+
+  /* ========== AMÉLIORATIONS FLUIDITÉ & ANIMATIONS ========== */
+
+  /* View Transitions : fondu doux entre les pages */
+  @view-transition { navigation: auto; }
+  @keyframes fonduEntree { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fonduSortie { from { opacity: 1; } to { opacity: 0; } }
+  ::view-transition-old(root) { animation: fonduSortie 0.18s ease both; }
+  ::view-transition-new(root) { animation: fonduEntree 0.22s ease both; }
+
+  /* La barre du bas ne fait JAMAIS partie de la transition (elle reste fixe) */
+  .nav { view-transition-name: barre-nav; }
+  ::view-transition-old(barre-nav),
+  ::view-transition-new(barre-nav) { animation: none; }
+
+  /* Fond de sécurité en bas harmonisé avec la barre (corrige le "blanc" sous la nav) */
+  .nav::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: env(safe-area-inset-bottom);
+    background: rgba(255,255,255,0.92);
+    transform: translateY(100%);
+  }
+
+  /* Apparition douce des cartes au chargement */
+  @keyframes monteeDouce {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .contenu > *, .zone-dessin > *, .contenu .carte, .grille-2, .grille-photos {
+    animation: monteeDouce 0.4s ease both;
+  }
+  .contenu > *:nth-child(1) { animation-delay: 0.02s; }
+  .contenu > *:nth-child(2) { animation-delay: 0.08s; }
+  .contenu > *:nth-child(3) { animation-delay: 0.14s; }
+  .contenu > *:nth-child(4) { animation-delay: 0.20s; }
+
+  /* Boutons et liens plus réactifs au toucher */
+  .nav a { transition: color 0.2s ease, transform 0.1s ease; }
+  .nav a:active { transform: scale(0.9); }
+  .carte-lien { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .carte-lien:active { transform: scale(0.97); }
+
+  /* Respecte les préférences "réduire les animations" (accessibilité) */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::view-transition-old(root), ::view-transition-new(root) {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
 </style>
 </head>
 <body>
