@@ -68,6 +68,14 @@
   .pastille.active { border-color: var(--texte); transform: scale(1.12); }
   .pastille:active { transform: scale(0.92); }
 
+  /* Bouton gomme : fond clair distinct, icône au centre */
+  .pastille.gomme {
+    background: #f0eef0;
+    display: flex; align-items: center; justify-content: center;
+    border: 3px solid #ddd;
+  }
+  .pastille.gomme.active { border-color: var(--mauve); transform: scale(1.12); }
+
   .epaisseurs { display: flex; gap: 8px; flex: 1; align-items: center; }
   .ep-btn {
     flex: 1; height: 36px; border-radius: 10px; border: 1.5px solid var(--bordure);
@@ -102,7 +110,7 @@
   .nav {
     position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 430px;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    background: rgba(255,255,255,0.97); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--bordure);
     display: flex; justify-content: space-around;
     padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 100;
@@ -130,14 +138,6 @@
   ::view-transition-new(barre-nav) { animation: none; }
 
   /* Fond de sécurité en bas harmonisé avec la barre (corrige le "blanc" sous la nav) */
-  .nav::after {
-    content: "";
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: env(safe-area-inset-bottom);
-    background: rgba(255,255,255,0.92);
-    transform: translateY(100%);
-  }
 
   /* Apparition douce des cartes au chargement */
   @keyframes monteeDouce {
@@ -406,21 +406,44 @@ function brancherEvenements() {
 }
 
 // ====== COULEURS ======
+const COULEUR_FOND = "#1a1a2e"; // couleur du fond = ce que "peint" la gomme
 const palette = ["#ff9eb5", "#9eb5ff", "#ffffff", "#ffe066", "#7ee0a0", "#ff8a5c", "#c89eff", "#000000"];
 const contCouleurs = document.getElementById("couleurs");
+
+function activerCouleur(c, element) {
+  couleurActuelle = c;
+  gommeActive = false;
+  document.querySelectorAll(".pastille").forEach(x => x.classList.remove("active"));
+  document.getElementById("btn-gomme").classList.remove("active");
+  if (element) element.classList.add("active");
+}
+
 palette.forEach((c, i) => {
   const p = document.createElement("div");
   p.className = "pastille" + (i === 0 ? " active" : "");
   p.style.background = c;
   if (c === "#ffffff") p.style.border = "3px solid #ddd";
   p.addEventListener("click", () => {
-    couleurActuelle = c;
-    document.querySelectorAll(".pastille").forEach(x => x.classList.remove("active"));
-    p.classList.add("active");
+    activerCouleur(c, p);
     if (c === "#ffffff") p.style.border = "3px solid var(--texte)";
   });
   contCouleurs.appendChild(p);
 });
+
+// ====== GOMME ======
+let gommeActive = false;
+const btnGomme = document.createElement("div");
+btnGomme.id = "btn-gomme";
+btnGomme.className = "pastille gomme";
+btnGomme.title = "Gomme";
+btnGomme.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4L13 20"/><path d="M6 11l7 7"/></svg>`;
+btnGomme.addEventListener("click", () => {
+  gommeActive = true;
+  couleurActuelle = COULEUR_FOND;
+  document.querySelectorAll(".pastille").forEach(x => x.classList.remove("active"));
+  btnGomme.classList.add("active");
+});
+contCouleurs.appendChild(btnGomme);
 
 // ====== ÉPAISSEURS ======
 const tailles = [{ ep: 2, taille: 6 }, { ep: 4, taille: 10 }, { ep: 8, taille: 16 }, { ep: 14, taille: 22 }];
