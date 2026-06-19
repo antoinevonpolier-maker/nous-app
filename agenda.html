@@ -116,7 +116,7 @@
   .nav {
     position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 430px;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    background: rgba(255,255,255,0.97); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--bordure);
     display: flex; justify-content: space-around;
     padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 100;
@@ -146,14 +146,6 @@
   ::view-transition-new(barre-nav) { animation: none; }
 
   /* Fond de sécurité en bas harmonisé avec la barre (corrige le "blanc" sous la nav) */
-  .nav::after {
-    content: "";
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: env(safe-area-inset-bottom);
-    background: rgba(255,255,255,0.92);
-    transform: translateY(100%);
-  }
 
   /* Apparition douce des cartes au chargement */
   @keyframes monteeDouce {
@@ -246,10 +238,27 @@ protegerPage();
 let monPrenom = "";
 auth.onAuthStateChanged((user) => {
   if (user) {
+    definirLangue(user.email);
+    traduireAgenda();
     monPrenom = prenomDepuisEmail(user.email);
     ecouterEvenements();
   }
 });
+
+// Traduit les textes statiques de la page agenda
+function traduireAgenda() {
+  if (!LANGUE_US) return;
+  document.querySelector(".topbar h1").textContent = t("Notre agenda");
+  // Modale d'ajout
+  document.querySelector("#modale h2").textContent = t("Nouveau moment 💕");
+  const labels = document.querySelectorAll("#modale label");
+  if (labels[0]) labels[0].textContent = t("Quoi ?");
+  if (labels[1]) labels[1].textContent = t("Quand ?");
+  document.getElementById("m-titre").placeholder = t("Ex : Appel vidéo, Voyage à Paris…");
+  document.getElementById("m-annuler").textContent = t("Annuler");
+  document.getElementById("m-valider").textContent = t("Ajouter");
+  traduireNavCommune();
+}
 
 function prenomDepuisEmail(email) {
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -274,8 +283,8 @@ modale.addEventListener("click", (e) => { if (e.target === modale) modale.style.
 document.getElementById("m-valider").addEventListener("click", async () => {
   const titre = document.getElementById("m-titre").value.trim();
   const dateStr = document.getElementById("m-date").value;
-  if (!titre) { alert("Donne un titre à ce moment."); return; }
-  if (!dateStr) { alert("Choisis une date."); return; }
+  if (!titre) { alert(t("Donne un titre à ce moment.")); return; }
+  if (!dateStr) { alert(t("Choisis une date.")); return; }
   try {
     await db.collection("evenements").add({
       titre: titre,
@@ -301,7 +310,7 @@ function ecouterEvenements() {
         liste.className = "";
         prochainBloc.innerHTML = "";
         liste.innerHTML = `<div class="vide-msg"><div class="emoji">📅</div>
-          <p>Aucun moment prévu.<br>Appuie sur + pour planifier votre prochain rendez-vous !</p></div>`;
+          <p>${t("Aucun moment prévu.<br>Appuie sur + pour planifier votre prochain rendez-vous !")}</p></div>`;
         return;
       }
 
@@ -317,10 +326,10 @@ function ecouterEvenements() {
         const p = futurs[0];
         const date = p.date.toDate();
         prochainBloc.innerHTML = `<div class="prochain">
-          <div class="label">Prochain moment</div>
+          <div class="label">${t("Prochain moment")}</div>
           <div class="titre">${echapper(p.titre)}</div>
           <div class="compte">${compteARebours(date)}</div>
-          <div class="date-evt">${date.toLocaleDateString("fr-FR", {weekday:"long", day:"numeric", month:"long"})} à ${date.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"})}</div>
+          <div class="date-evt">${formatDateEvt(date)}</div>
         </div>`;
       } else {
         prochainBloc.innerHTML = "";
@@ -331,19 +340,19 @@ function ecouterEvenements() {
 
       // À venir
       if (futurs.length > 0) {
-        html += '<div class="titre-section">À venir</div>';
+        html += '<div class="titre-section">' + t("À venir") + '</div>';
         futurs.forEach((e, i) => html += carteEvt(e, i, false));
       }
       // Passés
       if (passes.length > 0) {
-        html += '<div class="titre-section" style="margin-top:20px">Souvenirs</div>';
+        html += '<div class="titre-section" style="margin-top:20px">' + t("Souvenirs") + '</div>';
         passes.forEach((e, i) => html += carteEvt(e, i, true));
       }
       liste.innerHTML = html;
 
       document.querySelectorAll(".evt-suppr").forEach((b) => {
         b.addEventListener("click", async () => {
-          if (!confirm("Supprimer ce moment ?")) return;
+          if (!confirm(t("Supprimer ce moment ?"))) return;
           await db.collection("evenements").doc(b.dataset.id).delete();
         });
       });
@@ -358,10 +367,18 @@ function ecouterEvenements() {
     });
 }
 
+function formatDateEvt(date) {
+  const langue = LANGUE_US ? "en-US" : "fr-FR";
+  const dateStr = date.toLocaleDateString(langue, {weekday:"long", day:"numeric", month:"long"});
+  const heureStr = date.toLocaleTimeString(langue, {hour:"2-digit", minute:"2-digit", hour12: LANGUE_US});
+  const lien = LANGUE_US ? " at " : " à ";
+  return dateStr + lien + heureStr;
+}
+
 function carteEvt(e, i, passe) {
   const date = e.date.toDate();
   const jour = date.getDate();
-  const mois = date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
+  const mois = date.toLocaleDateString(LANGUE_US ? "en-US" : "fr-FR", { month: "short" }).replace(".", "");
   const couleurBleu = i % 2 === 1;
   return `<div class="evt-carte ${passe ? 'passe' : ''}">
     <div class="evt-date-bloc ${couleurBleu ? 'bleu' : ''}">
@@ -370,23 +387,14 @@ function carteEvt(e, i, passe) {
     </div>
     <div class="evt-infos">
       <div class="titre">${echapper(e.titre)}</div>
-      <div class="meta">${passe ? 'Passé' : compteARebours(date)} · ajouté par ${echapper(e.auteur || '?')}</div>
+      <div class="meta">${passe ? t('Passé') : compteARebours(date)} · ${t("ajouté par")} ${echapper(e.auteur || '?')}</div>
     </div>
     <button class="evt-suppr" data-id="${e.id}" title="Supprimer">×</button>
   </div>`;
 }
 
 // ---- Utilitaires ----
-function compteARebours(date) {
-  const diff = date - Date.now();
-  if (diff <= 0) return "maintenant";
-  const jours = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const heures = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  if (jours >= 1) return "dans " + jours + (jours > 1 ? " jours" : " jour");
-  if (heures >= 1) return "dans " + heures + " h";
-  const min = Math.floor(diff / (1000 * 60));
-  return "dans " + min + " min";
-}
+function compteARebours(date) { return compteAReboursBilingue(date); }
 function echapper(txt) {
   const div = document.createElement("div");
   div.textContent = txt || "";
