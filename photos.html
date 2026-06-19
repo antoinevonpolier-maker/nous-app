@@ -118,7 +118,7 @@
   .nav {
     position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 430px;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    background: rgba(255,255,255,0.97); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--bordure);
     display: flex; justify-content: space-around;
     padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 100;
@@ -148,14 +148,6 @@
   ::view-transition-new(barre-nav) { animation: none; }
 
   /* Fond de sécurité en bas harmonisé avec la barre (corrige le "blanc" sous la nav) */
-  .nav::after {
-    content: "";
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: env(safe-area-inset-bottom);
-    background: rgba(255,255,255,0.92);
-    transform: translateY(100%);
-  }
 
   /* Apparition douce des cartes au chargement */
   @keyframes monteeDouce {
@@ -256,11 +248,21 @@ const JOURS_AVANT_SUPPRESSION = 7;
 let monPrenom = "";
 auth.onAuthStateChanged(async (user) => {
   if (user) {
+    definirLangue(user.email);
+    traduirePhotos();
     monPrenom = prenomDepuisEmail(user.email);
     await nettoyerAnciennesPhotos();
     ecouterPhotos();
   }
 });
+
+// Traduit les textes statiques de la page photos
+function traduirePhotos() {
+  if (!LANGUE_US) return;
+  document.querySelector(".topbar h1").textContent = t("Nos photos");
+  document.querySelector(".note-info span").textContent = t("Touche le coeur pour garder une photo. Les autres s'effacent apres 7 jours.");
+  traduireNavCommune();
+}
 
 function prenomDepuisEmail(email) {
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -329,7 +331,7 @@ function ecouterPhotos() {
       const liste = document.getElementById("liste");
       if (snap.empty) {
         liste.className = "";
-        liste.innerHTML = '<div class="vide-msg"><div class="emoji">📷</div><p>Aucune photo pour l\'instant.<br>Appuie sur + pour partager la première !</p></div>';
+        liste.innerHTML = '<div class="vide-msg"><div class="emoji">📷</div><p>${t("Aucune photo pour l\'instant.")}<br>${t("Appuie sur + pour partager la première !")}</p></div>';
         return;
       }
       liste.className = "";
@@ -390,13 +392,13 @@ function majEtatCoeurVue(garde) {
   const txt = document.getElementById("txt-coeur-vue");
   const btn = document.getElementById("btn-coeur-vue");
   if (garde) {
-    etat.textContent = "Gardée — ne sera pas supprimée";
-    txt.textContent = "Ne plus garder";
+    etat.textContent = t("Gardée — ne sera pas supprimée");
+    txt.textContent = t("Ne plus garder");
     btn.querySelector("svg").setAttribute("fill", "#ff5a76");
     btn.querySelector("svg").setAttribute("stroke", "#ff5a76");
   } else {
-    etat.textContent = "S'effacera après 7 jours";
-    txt.textContent = "Garder";
+    etat.textContent = t("S'effacera après 7 jours");
+    txt.textContent = t("Garder");
     btn.querySelector("svg").setAttribute("fill", "none");
     btn.querySelector("svg").setAttribute("stroke", "#ff9eb5");
   }
@@ -419,7 +421,7 @@ document.getElementById("fermer-vue").addEventListener("click", () => {
 });
 document.getElementById("btn-supprimer").addEventListener("click", async () => {
   if (!photoOuverte) return;
-  if (!confirm("Supprimer cette photo ?")) return;
+  if (!confirm(t("Supprimer cette photo ?"))) return;
   try {
     await db.collection("photos").doc(photoOuverte.id).delete();
     if (photoOuverte.chemin) await storage.ref().child(photoOuverte.chemin).delete().catch(() => {});
@@ -433,10 +435,17 @@ function formatDate(timestamp) {
   if (!timestamp) return "";
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   const sec = Math.floor((Date.now() - date) / 1000);
-  if (sec < 3600) return "il y a " + Math.max(1, Math.floor(sec / 60)) + " min";
-  if (sec < 86400) return "il y a " + Math.floor(sec / 3600) + " h";
-  if (sec < 604800) return "il y a " + Math.floor(sec / 86400) + " j";
-  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  const langue = LANGUE_US ? "en-US" : "fr-FR";
+  if (LANGUE_US) {
+    if (sec < 3600) return Math.max(1, Math.floor(sec / 60)) + " min ago";
+    if (sec < 86400) return Math.floor(sec / 3600) + " h ago";
+    if (sec < 604800) return Math.floor(sec / 86400) + " d ago";
+  } else {
+    if (sec < 3600) return "il y a " + Math.max(1, Math.floor(sec / 60)) + " min";
+    if (sec < 86400) return "il y a " + Math.floor(sec / 3600) + " h";
+    if (sec < 604800) return "il y a " + Math.floor(sec / 86400) + " j";
+  }
+  return date.toLocaleDateString(langue, { day: "numeric", month: "short" });
 }
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
