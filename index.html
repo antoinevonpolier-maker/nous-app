@@ -304,6 +304,51 @@
     }
   }
 
+
+  /* ===== CARTE QUESTION DU JOUR ===== */
+  .question-carte { padding: 16px; }
+  .question-texte {
+    font-size: 15px; font-weight: 600; color: var(--texte);
+    line-height: 1.4; margin-bottom: 12px;
+  }
+  #question-zone-reponse { display: flex; flex-direction: column; gap: 8px; }
+  #question-input {
+    width: 100%; border: 1.5px solid var(--bordure); border-radius: 12px;
+    padding: 10px 12px; font-size: 15px; font-family: inherit; resize: none;
+    background: #fafafa; color: var(--texte);
+  }
+  #question-input:focus { outline: none; border-color: var(--mauve); background: #fff; }
+  #question-envoyer {
+    align-self: flex-end; background: var(--mauve); color: #fff; border: none;
+    border-radius: 10px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #question-envoyer:active { transform: scale(0.97); }
+  .reponse-bloc { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #f7f5f6; }
+  .reponse-bloc .reponse-qui {
+    font-size: 11px; font-weight: 600; color: var(--mauve); text-transform: uppercase;
+    letter-spacing: 0.4px; margin-bottom: 3px;
+  }
+  .reponse-bloc.bleu .reponse-qui { color: var(--bleu); }
+  .reponse-bloc .reponse-txt { font-size: 14px; color: var(--texte); line-height: 1.4; }
+  #question-attente { font-size: 13px; color: var(--texte-doux); text-align: center; padding: 8px 0; font-style: italic; }
+
+  /* ===== CORRECTION BARRE DU BAS SUR IPHONE (vide gris) ===== */
+  /* Le fond couvre TOUTE la hauteur de l'écran, zone de sécurité comprise */
+  html {
+    background: var(--fond);
+    min-height: 100%;
+  }
+  /* Remplit la zone sous la barre de nav (zone de sécurité iPhone) avec le même fond que la barre */
+  .nav::after {
+    content: "";
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: env(safe-area-inset-bottom);
+    background: rgba(255,255,255,0.97);
+    z-index: 99;
+    pointer-events: none;
+  }
+
 </style>
 </head>
 <body>
@@ -377,6 +422,20 @@
           <div class="val" id="meteo-b">--</div>
           <div class="lieu" id="meteo-lieu-b">Nouvelle-Orléans</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Question du jour -->
+    <div>
+      <div class="titre-section" id="titre-question">Question du jour</div>
+      <div class="carte question-carte" id="question-carte">
+        <div class="question-texte" id="question-texte">…</div>
+        <div id="question-zone-reponse">
+          <textarea id="question-input" rows="2" placeholder="Ta réponse…"></textarea>
+          <button id="question-envoyer">Répondre</button>
+        </div>
+        <div id="question-reponses" style="display:none"></div>
+        <div id="question-attente" style="display:none"></div>
       </div>
     </div>
 
@@ -502,6 +561,7 @@ function demarrerAccueil(user) {
   chargerMeteo();
   ecouterApercus();
   ecouterAgenda();
+  gererQuestion();
 
   // Géolocalisation : écouter les positions des deux, puis demander la mienne
   ecouterPositions();
@@ -742,6 +802,72 @@ function ecouterApercus() {
     }, (err) => {
       console.error("Erreur aperçu dessin :", err);
     });
+}
+
+// ====== QUESTION DU JOUR ======
+function gererQuestion() {
+  // Traduire le titre et le bouton si Silvia
+  if (LANGUE_US) {
+    document.getElementById("titre-question").textContent = "Question of the day";
+    document.getElementById("question-input").placeholder = "Your answer…";
+    document.getElementById("question-envoyer").textContent = "Answer";
+  }
+
+  // Afficher la question du jour
+  const q = questionDuJour();
+  document.getElementById("question-texte").textContent = q.texte;
+
+  // Écouter les réponses du jour dans Firebase
+  const docId = idJour();
+  db.collection("questions").doc(docId).onSnapshot((doc) => {
+    const data = doc.exists ? doc.data() : {};
+    const reponseA = data.reponseA || null; // Antoine
+    const reponseB = data.reponseB || null; // Silvia
+    const maReponse = (jeSuis === "A") ? reponseA : reponseB;
+    const sonReponse = (jeSuis === "A") ? reponseB : reponseA;
+
+    const zoneRep = document.getElementById("question-zone-reponse");
+    const zoneReponses = document.getElementById("question-reponses");
+    const zoneAttente = document.getElementById("question-attente");
+    const autrePrenom = (jeSuis === "A") ? COUPLE.personneB.prenom : COUPLE.personneA.prenom;
+
+    if (!maReponse) {
+      zoneRep.style.display = "flex";
+      zoneReponses.style.display = "none";
+      zoneAttente.style.display = "none";
+    } else if (maReponse && !sonReponse) {
+      zoneRep.style.display = "none";
+      zoneReponses.style.display = "none";
+      zoneAttente.style.display = "block";
+      zoneAttente.textContent = LANGUE_US
+        ? "✓ Answered! Waiting for " + autrePrenom + "…"
+        : "✓ Répondu ! En attente de " + autrePrenom + "…";
+    } else {
+      zoneRep.style.display = "none";
+      zoneAttente.style.display = "none";
+      zoneReponses.style.display = "block";
+      const labelMoi = LANGUE_US ? "You" : "Toi";
+      zoneReponses.innerHTML =
+        '<div class="reponse-bloc"><div class="reponse-qui">' + labelMoi + '</div><div class="reponse-txt">' + echapper(maReponse) + '</div></div>' +
+        '<div class="reponse-bloc bleu"><div class="reponse-qui">' + echapper(autrePrenom) + '</div><div class="reponse-txt">' + echapper(sonReponse) + '</div></div>';
+    }
+  });
+
+  // Envoi de ma réponse
+  document.getElementById("question-envoyer").onclick = async () => {
+    const txt = document.getElementById("question-input").value.trim();
+    if (!txt) return;
+    const champ = (jeSuis === "A") ? "reponseA" : "reponseB";
+    const maj = {};
+    maj[champ] = txt;
+    maj.question = questionDuJour().index;
+    try {
+      await db.collection("questions").doc(idJour()).set(maj, { merge: true });
+      document.getElementById("question-input").value = "";
+    } catch (e) {
+      alert("Erreur : " + e.message);
+    }
+  };
 }
 
 // --- Agenda (3 prochains événements) ---
