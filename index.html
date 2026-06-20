@@ -149,6 +149,13 @@
     line-height: 1.2; font-weight: 600;
   }
   .centre-coeur .compteur small { font-weight: 400; opacity: 0.75; font-size: 9px; }
+  .centre-coeur .distance {
+    font-size: 11px; text-align: center; margin-top: 8px;
+    font-weight: 600; opacity: 0.95; line-height: 1.2;
+    background: rgba(255,255,255,0.18); border-radius: 10px;
+    padding: 4px 8px; white-space: nowrap;
+  }
+  .centre-coeur .distance:empty { display: none; }
 
   .contenu { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 
@@ -330,6 +337,7 @@
       <div class="centre-coeur">
         <div class="coeur">♡</div>
         <div class="compteur" id="compteur"><span id="jours">--</span><br><small>jours</small></div>
+        <div class="distance" id="distance"></div>
       </div>
       <div class="personne">
         <div class="avatar" id="av-b">S</div>
@@ -460,6 +468,14 @@ function definirFormat(email) {
 
 // ====== ACCUEIL ======
 let accueilDemarre = false;
+
+// Positions dynamiques (remplies par GPS + Firebase). Au départ = valeurs fixes de COUPLE.
+const positions = {
+  A: { lat: COUPLE.personneA.lat, lon: COUPLE.personneA.lon, ville: COUPLE.personneA.ville, timezone: COUPLE.personneA.timezone },
+  B: { lat: COUPLE.personneB.lat, lon: COUPLE.personneB.lon, ville: COUPLE.personneB.ville, timezone: COUPLE.personneB.timezone }
+};
+let jeSuis = "A"; // "A" si Antoine connecté, "B" si Silvia
+
 function demarrerAccueil(user) {
   if (accueilDemarre) return;
   accueilDemarre = true;
@@ -467,6 +483,9 @@ function demarrerAccueil(user) {
   definirFormat(user ? user.email : "");
   definirLangue(user ? user.email : "");
   traduireAccueil();
+
+  // Qui suis-je ? (pour savoir quelle position mettre à jour)
+  jeSuis = (user && estAnglophone(user.email)) ? "B" : "A";
 
   // Personnaliser depuis COUPLE
   const A = COUPLE.personneA, B = COUPLE.personneB;
@@ -483,6 +502,118 @@ function demarrerAccueil(user) {
   chargerMeteo();
   ecouterApercus();
   ecouterAgenda();
+
+  // Géolocalisation : écouter les positions des deux, puis demander la mienne
+  ecouterPositions();
+  demanderMaPosition();
+}
+
+// ====== GÉOLOCALISATION ======
+// Écoute les positions des deux personnes dans Firebase (temps réel)
+function ecouterPositions() {
+  ["A", "B"].forEach((qui) => {
+    const id = qui === "A" ? COUPLE.personneA.prenom.toLowerCase() : COUPLE.personneB.prenom.toLowerCase();
+    db.collection("positions").doc(id).onSnapshot((doc) => {
+      if (doc.exists) {
+        const d = doc.data();
+        if (typeof d.lat === "number" && typeof d.lon === "number") {
+          positions[qui].lat = d.lat;
+          positions[qui].lon = d.lon;
+          if (d.ville) positions[qui].ville = d.ville;
+          if (d.timezone) positions[qui].timezone = d.timezone;
+          // Mettre à jour l'affichage ville
+          majVilleAffichee(qui);
+          // Recalculer météo de cette personne et distance
+          chargerMeteoVille(positions[qui], qui === "A" ? "meteo-a" : "meteo-b");
+          majDistance();
+        }
+      }
+    });
+  });
+}
+
+// Demande la position GPS du téléphone et l'enregistre dans Firebase
+function demanderMaPosition() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      // Détecter ville + fuseau horaire
+      const infos = await detecterLieu(lat, lon);
+      const id = jeSuis === "A" ? COUPLE.personneA.prenom.toLowerCase() : COUPLE.personneB.prenom.toLowerCase();
+      try {
+        await db.collection("positions").doc(id).set({
+          lat: lat, lon: lon,
+          ville: infos.ville,
+          timezone: infos.timezone,
+          maj: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) { console.log("Position non enregistrée :", e.message); }
+    },
+    (err) => { console.log("Géolocalisation refusée ou indisponible :", err.message); },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+  );
+}
+
+// Détecte le nom de la ville et le fuseau horaire à partir des coordonnées
+async function detecterLieu(lat, lon) {
+  const resultat = { ville: "", timezone: "" };
+  // Fuseau horaire via open-meteo
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`);
+    const data = await r.json();
+    if (data.timezone) resultat.timezone = data.timezone;
+  } catch (e) { console.log("Fuseau non détecté"); }
+  // Nom de ville via BigDataCloud (gratuit, sans clé)
+  try {
+    const langue = LANGUE_US ? "en" : "fr";
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${langue}`);
+    const data = await r.json();
+    resultat.ville = data.city || data.locality || data.principalSubdivision || "";
+  } catch (e) { console.log("Ville non détectée"); }
+  return resultat;
+}
+
+// Met à jour le nom de ville affiché pour une personne
+function majVilleAffichee(qui) {
+  const p = positions[qui];
+  const drapeau = qui === "A" ? COUPLE.personneA.drapeau : COUPLE.personneB.drapeau;
+  const idVille = qui === "A" ? "ville-a" : "ville-b";
+  const idMeteoLieu = qui === "A" ? "meteo-lieu-a" : "meteo-lieu-b";
+  if (p.ville) {
+    document.getElementById(idVille).textContent = p.ville + " " + drapeau;
+    document.getElementById(idMeteoLieu).textContent = p.ville;
+  }
+}
+
+// Calcule et affiche la distance entre les deux positions
+function majDistance() {
+  const a = positions.A, b = positions.B;
+  if (!a.lat || !b.lat) return;
+  const km = distanceKm(a.lat, a.lon, b.lat, b.lon);
+  const el = document.getElementById("distance");
+  if (km < 1) {
+    el.textContent = LANGUE_US ? "❤️ Together!" : "❤️ Ensemble !";
+    return;
+  }
+  if (formatUS) {
+    const miles = Math.round(km * 0.621371);
+    el.textContent = "✈️ " + miles.toLocaleString("en-US") + " mi";
+  } else {
+    el.textContent = "✈️ " + Math.round(km).toLocaleString("fr-FR") + " km";
+  }
+}
+
+// Formule de Haversine : distance entre deux points GPS en km
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // rayon de la Terre en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
 // Traduit les textes statiques de l'accueil
@@ -503,9 +634,8 @@ function traduireAccueil() {
 
 // --- Horloges en temps réel ---
 function majHorloges() {
-  const A = COUPLE.personneA, B = COUPLE.personneB;
-  afficherHeure("heure-a", "date-a", A.timezone);
-  afficherHeure("heure-b", "date-b", B.timezone);
+  afficherHeure("heure-a", "date-a", positions.A.timezone);
+  afficherHeure("heure-b", "date-b", positions.B.timezone);
 }
 function afficherHeure(idHeure, idDate, tz) {
   const maintenant = new Date();
@@ -541,8 +671,8 @@ function majCompteurJours() {
 
 // --- Météo (open-meteo, gratuit, sans clé) ---
 async function chargerMeteo() {
-  chargerMeteoVille(COUPLE.personneA, "meteo-a");
-  chargerMeteoVille(COUPLE.personneB, "meteo-b");
+  chargerMeteoVille(positions.A, "meteo-a");
+  chargerMeteoVille(positions.B, "meteo-b");
 }
 async function chargerMeteoVille(p, id) {
   try {
