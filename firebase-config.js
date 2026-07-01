@@ -650,16 +650,23 @@ const QUESTIONS = [
 ];
 
 // Choisit la question du jour (change chaque jour, identique pour les deux)
+// IMPORTANT : on calcule le "jour" en UTC pour que les DEUX personnes
+// (même avec un décalage horaire) soient TOUJOURS sur la même question
+// au même moment, et que les réponses se stockent dans la même case.
+function numeroDuJourUTC() {
+  const maintenant = new Date();
+  // Nombre de jours entiers écoulés depuis l'époque, en UTC
+  return Math.floor(maintenant.getTime() / (1000 * 60 * 60 * 24));
+}
+
 function questionDuJour() {
-  const debut = new Date("2025-01-01").getTime();
-  const aujourdhui = new Date();
-  const jour = Math.floor((aujourdhui - debut) / (1000 * 60 * 60 * 24));
+  const jour = numeroDuJourUTC();
   const index = ((jour % QUESTIONS.length) + QUESTIONS.length) % QUESTIONS.length;
   return { index: index, texte: LANGUE_US ? QUESTIONS[index].en : QUESTIONS[index].fr };
 }
 
 // Identifiant du jour (pour stocker les réponses par jour dans Firebase)
+// Basé sur le même numéro de jour UTC -> parfaitement aligné avec questionDuJour()
 function idJour() {
-  const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  return "jour-" + numeroDuJourUTC();
 }
